@@ -1,0 +1,144 @@
+/* src/styles/globals.css */
+
+/* ─── LIGHT MODE (default) ─── */
+:root,
+[data-theme="light"] {
+  --bg-base: #f4f4f8;
+  --bg-surface: #ebebf2;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8f8fc;
+  --bg-elevated: #f0f0f6;
+
+  --accent-primary: #6355e8;
+  --accent-primary-dim: rgba(99, 85, 232, 0.1);
+  --accent-secondary: #e8556a;
+  --accent-green: #16a34a;
+  --accent-green-dim: rgba(22, 163, 74, 0.1);
+  --accent-amber: #d97706;
+  --accent-amber-dim: rgba(217, 119, 6, 0.1);
+  --accent-red: #dc2626;
+  --accent-red-dim: rgba(220, 38, 38, 0.08);
+
+  --text-primary: #0f0f1a;
+  --text-secondary: #52526e;
+  --text-muted: #9898b0;
+
+  --border: rgba(0, 0, 0, 0.07);
+  --border-active: rgba(99, 85, 232, 0.4);
+
+  --shadow-card: 0 2px 16px rgba(0, 0, 0, 0.07);
+  --shadow-glow: 0 0 40px rgba(99, 85, 232, 0.12);
+
+  --topbar-bg: rgba(244, 244, 248, 0.88);
+  --bottomnav-bg: rgba(244, 244, 248, 0.94);
+}
+
+/* ─── DARK MODE ─── */
+[data-theme="dark"] {
+  --bg-base: #0a0a0f;
+  --bg-surface: #111118;
+  --bg-card: #16161f;
+  --bg-card-hover: #1c1c27;
+  --bg-elevated: #1e1e2a;
+
+  --accent-primary: #7c6aff;
+  --accent-primary-dim: rgba(124, 106, 255, 0.15);
+  --accent-secondary: #ff6a6a;
+  --accent-green: #4ade80;
+  --accent-green-dim: rgba(74, 222, 128, 0.12);
+  --accent-amber: #fbbf24;
+  --accent-amber-dim: rgba(251, 191, 36, 0.12);
+  --accent-red: #f87171;
+  --accent-red-dim: rgba(248, 113, 113, 0.12);
+
+  --text-primary: #f0f0f8;
+  --text-secondary: #8888a8;
+  --text-muted: #55556a;
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-active: rgba(124, 106, 255, 0.4);
+
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 40px rgba(124, 106, 255, 0.15);
+
+  --topbar-bg: rgba(10, 10, 15, 0.88);
+  --bottomnav-bg: rgba(10, 10, 15, 0.94);
+}
+
+/* ─── SHARED TOKENS ─── */
+:root {
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --nav-height: 64px;
+  --bottom-nav-height: 72px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+/* ─── RESET ─── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* Smooth theme transitions on all key elements */
+*, *::before, *::after {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+/* But NOT on transforms/opacity (breaks animations) */
+[style*="transform"], [style*="opacity"] {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Selection */
+::selection { background: var(--accent-primary-dim); color: var(--text-primary); }
+
+/* Focus */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button { cursor: pointer; font-family: var(--font-body); border: none; background: none; }
+input, select, textarea { font-family: var(--font-body); }
+a { text-decoration: none; color: inherit; }
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--accent-primary), #b06aff, #ff6aaa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-container {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  position: relative;
+}
