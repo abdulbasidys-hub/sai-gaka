@@ -7,7 +7,6 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getMessaging, isSupported } from 'firebase/messaging';
 
-
 const firebaseConfig = {
   apiKey: "AIzaSyAniMC4INGJKej1mksqg4TIg23sI6C6tZc",
   authDomain: "sai-ga-ka.firebaseapp.com",
@@ -17,8 +16,6 @@ const firebaseConfig = {
   appId: "1:620837913319:web:44e705ba378d7c86869842",
   measurementId: "G-0CP618L4TM"
 };
-
-
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
