@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { CurrencyProvider } from './context/CurrencyContext';
 import AuthPage from './pages/AuthPage';
 import DashboardPage from './pages/DashboardPage';
 import TransactionsPage from './pages/TransactionsPage';
@@ -28,9 +29,11 @@ function AppRoutes() {
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
       <Route path="/" element={
         <ProtectedRoute>
-          <FinanceProvider>
-            <AppLayout />
-          </FinanceProvider>
+          <CurrencyProvider>
+            <FinanceProvider>
+              <AppLayout />
+            </FinanceProvider>
+          </CurrencyProvider>
         </ProtectedRoute>
       }>
         <Route index element={<DashboardPage />} />

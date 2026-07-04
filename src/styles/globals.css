@@ -11,7 +11,8 @@
 
   --accent-primary: #6355e8;
   --accent-primary-dim: rgba(99, 85, 232, 0.1);
-  --accent-secondary: #e8556a;
+  --accent-naira: #22863a;
+  --accent-naira-dim: rgba(34, 134, 58, 0.1);
   --accent-green: #16a34a;
   --accent-green-dim: rgba(22, 163, 74, 0.1);
   --accent-amber: #d97706;
@@ -29,8 +30,8 @@
   --shadow-card: 0 2px 16px rgba(0, 0, 0, 0.07);
   --shadow-glow: 0 0 40px rgba(99, 85, 232, 0.12);
 
-  --topbar-bg: rgba(244, 244, 248, 0.88);
-  --bottomnav-bg: rgba(244, 244, 248, 0.94);
+  --topbar-bg: rgba(244, 244, 248, 0.92);
+  --bottomnav-bg: rgba(244, 244, 248, 0.96);
 }
 
 /* ─── DARK MODE ─── */
@@ -43,7 +44,8 @@
 
   --accent-primary: #7c6aff;
   --accent-primary-dim: rgba(124, 106, 255, 0.15);
-  --accent-secondary: #ff6a6a;
+  --accent-naira: #34d399;
+  --accent-naira-dim: rgba(52, 211, 153, 0.12);
   --accent-green: #4ade80;
   --accent-green-dim: rgba(74, 222, 128, 0.12);
   --accent-amber: #fbbf24;
@@ -61,20 +63,20 @@
   --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
   --shadow-glow: 0 0 40px rgba(124, 106, 255, 0.15);
 
-  --topbar-bg: rgba(10, 10, 15, 0.88);
-  --bottomnav-bg: rgba(10, 10, 15, 0.94);
+  --topbar-bg: rgba(10, 10, 15, 0.92);
+  --bottomnav-bg: rgba(10, 10, 15, 0.96);
 }
 
 /* ─── SHARED TOKENS ─── */
 :root {
   --font-display: 'Plus Jakarta Sans', sans-serif;
   --font-body: 'DM Sans', sans-serif;
-  --nav-height: 64px;
-  --bottom-nav-height: 72px;
+  --nav-height: 60px;
+  --bottom-nav-height: 68px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-xl: 22px;
 }
 
 /* ─── RESET ─── */
@@ -87,6 +89,7 @@
 html {
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
+  height: 100%;
 }
 
 body {
@@ -94,31 +97,24 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
   min-height: 100dvh;
+  width: 100%;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.25s ease, color 0.25s ease;
 }
 
-/* Smooth theme transitions on all key elements */
-*, *::before, *::after {
-  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
-}
-/* But NOT on transforms/opacity (breaks animations) */
-[style*="transform"], [style*="opacity"] {
-  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
-}
+/* Theme transitions — only on color props, not transforms */
+* { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease; }
+[class*="motion"], [style*="transform"] { transition: none !important; }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* Selection */
 ::selection { background: var(--accent-primary-dim); color: var(--text-primary); }
 
-/* Focus */
 :focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
@@ -129,16 +125,47 @@ button { cursor: pointer; font-family: var(--font-body); border: none; backgroun
 input, select, textarea { font-family: var(--font-body); }
 a { text-decoration: none; color: inherit; }
 
-.text-gradient {
-  background: linear-gradient(135deg, var(--accent-primary), #b06aff, #ff6aaa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* ─── LAYOUT ─── */
+#root {
+  width: 100%;
+  min-height: 100dvh;
 }
 
 .page-container {
+  width: 100%;
   max-width: 480px;
   margin: 0 auto;
   min-height: 100dvh;
   position: relative;
+  background: var(--bg-base);
+}
+
+/* ─── SHEET OVERLAY ─── */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.sheet-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--bg-card);
+  border-radius: 20px 20px 0 0;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  z-index: 201;
+  max-height: 94dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }

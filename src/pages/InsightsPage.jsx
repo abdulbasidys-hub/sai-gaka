@@ -2,27 +2,18 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useFinance, BUDGET_CATEGORIES, ALL_CATEGORIES } from '../context/FinanceContext';
-import {
-  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip,
-  LineChart, Line, CartesianGrid, Legend,
-} from 'recharts';
+import { useCurrency, fmtGBP, fmtNGN } from '../context/CurrencyContext';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LineChart, Line, CartesianGrid } from 'recharts';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-
-function fmt(n) {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n || 0);
-}
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{
-      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-      borderRadius: '10px', padding: '10px 14px', fontSize: '13px',
-    }}>
-      <p style={{ fontFamily: 'var(--font-display)', fontWeight: '700', marginBottom: '4px', color: 'var(--text-primary)' }}>{label}</p>
+    <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 14px' }}>
+      <p style={{ fontFamily: 'var(--font-display)', fontWeight: '700', marginBottom: '4px', fontSize: '13px', color: 'var(--text-primary)' }}>{label}</p>
       {payload.map(p => (
-        <p key={p.dataKey} style={{ color: p.fill || p.stroke || 'var(--text-secondary)' }}>
-          {p.name}: {fmt(p.value)}
+        <p key={p.dataKey} style={{ fontSize: '12px', color: p.fill || p.stroke || 'var(--text-secondary)' }}>
+          {p.name}: {p.name?.includes('₦') ? fmtNGN(p.value) : fmtGBP(p.value)}
         </p>
       ))}
     </div>
@@ -30,54 +21,64 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function InsightsPage() {
-  const { fetchInsightsData, spentByCategory, totalSpent, totalIncome, transactions } = useFinance();
+  const { fetchInsightsData, spentByCategory, spentByCategoryNGN, totalSpentGBP, totalSpentNGN, transactions } = useFinance();
+  const { exchangeRate } = useCurrency();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState('overview'); // overview | categories | trends
+  const [activeView, setActiveView] = useState('overview');
 
   useEffect(() => {
     fetchInsightsData(4).then(d => { setData(d); setLoading(false); });
   }, []);
 
-  const currentMonth = data[data.length - 1];
-  const prevMonth = data[data.length - 2];
+  const currentMonthData = data[data.length - 1];
+  const prevMonthData = data[data.length - 2];
 
-  const monthlyTrend = currentMonth && prevMonth
-    ? ((currentMonth.total - prevMonth.total) / (prevMonth.total || 1)) * 100
+  const monthlyTrend = currentMonthData && prevMonthData && prevMonthData.totalGBP > 0
+    ? ((currentMonthData.totalGBP - prevMonthData.totalGBP) / prevMonthData.totalGBP) * 100
     : 0;
 
-  // Category comparison data for bar chart
-  const categoryCompareData = ALL_CATEGORIES.map(cat => {
-    const row = { category: cat.split(' ')[0], icon: BUDGET_CATEGORIES[cat].icon };
-    data.forEach(m => { row[m.label] = m.byCategory[cat] || 0; });
-    return row;
-  }).filter(row => data.some(m => row[m.label] > 0));
+  const daysElapsed = Math.max(new Date().getDate(), 1);
+  const dailyAvg = totalSpentGBP / daysElapsed;
 
-  // Monthly overview bar chart data
   const overviewData = data.map(m => ({
-    month: m.label, Spent: m.total, Income: m.income,
+    month: m.label,
+    'GBP Spent': m.totalGBP,
+    'GBP Income': m.incomeGBP,
   }));
 
-  // Top spending categories this month
-  const topCats = Object.entries(spentByCategory)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
-
-  // Avg daily spend
-  const daysInData = transactions.length > 0 ? (new Date().getDate()) : 1;
-  const dailyAvg = totalSpent / daysInData;
+  const topGBP = Object.entries(spentByCategory).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const topNGN = Object.entries(spentByCategoryNGN).sort((a, b) => b[1] - a[1]);
+  const hasAnyData = data.some(d => d.totalGBP > 0 || d.totalNGN > 0);
+  const hasNGNData = data.some(d => d.totalNGN > 0);
 
   if (loading) {
     return (
-      <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+      <div style={{ padding: '60px 16px', textAlign: 'center' }}>
+        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '12px' }}>
           {[0, 1, 2].map(i => (
             <motion.div key={i} animate={{ opacity: [0.3, 1, 0.3] }}
               transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
               style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-primary)' }} />
           ))}
         </div>
-        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '12px' }}>Loading insights…</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Loading insights…</p>
+      </div>
+    );
+  }
+
+  if (!hasAnyData) {
+    return (
+      <div style={{ padding: '16px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '48px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px' }}>
+            No data yet
+          </p>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            Start logging transactions and your insights will build up here over the coming months. The more you track, the more useful this becomes.
+          </p>
+        </div>
       </div>
     );
   }
@@ -89,17 +90,17 @@ export default function InsightsPage() {
       <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: '10px', padding: '3px', marginBottom: '16px', gap: '2px' }}>
         {[
           { id: 'overview', label: 'Overview' },
-          { id: 'categories', label: 'Categories' },
+          { id: 'gbp', label: '£ GBP' },
+          ...(hasNGNData ? [{ id: 'ngn', label: '₦ Naira' }] : []),
           { id: 'trends', label: 'Trends' },
         ].map(v => (
           <button key={v.id} onClick={() => setActiveView(v.id)} style={{
-            flex: 1, padding: '8px 6px', borderRadius: '8px',
-            fontSize: '12px', fontWeight: '600', fontFamily: 'var(--font-display)',
+            flex: 1, padding: '8px 4px', borderRadius: '8px',
+            fontSize: '12px', fontWeight: '700', fontFamily: 'var(--font-display)',
             background: activeView === v.id ? 'var(--bg-card)' : 'transparent',
             color: activeView === v.id ? 'var(--text-primary)' : 'var(--text-secondary)',
             border: activeView === v.id ? '1px solid var(--border)' : '1px solid transparent',
             boxShadow: activeView === v.id ? 'var(--shadow-card)' : 'none',
-            transition: 'all 0.2s',
           }}>
             {v.label}
           </button>
@@ -109,71 +110,87 @@ export default function InsightsPage() {
       {/* ── OVERVIEW ── */}
       {activeView === 'overview' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-
-          {/* KPI row */}
+          {/* KPIs */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
             <KpiCard
               label="vs Last Month"
               value={`${monthlyTrend > 0 ? '+' : ''}${monthlyTrend.toFixed(0)}%`}
               sub={monthlyTrend > 0 ? 'spending up' : monthlyTrend < 0 ? 'spending down' : 'no change'}
               color={monthlyTrend > 5 ? 'var(--accent-red)' : monthlyTrend < -5 ? 'var(--accent-green)' : 'var(--accent-amber)'}
-              icon={monthlyTrend > 0 ? <TrendingUp size={16} /> : monthlyTrend < 0 ? <TrendingDown size={16} /> : <Minus size={16} />}
+              icon={monthlyTrend > 0 ? <TrendingUp size={15} /> : monthlyTrend < 0 ? <TrendingDown size={15} /> : <Minus size={15} />}
             />
             <KpiCard
               label="Daily Average"
-              value={fmt(dailyAvg)}
-              sub={`over ${daysInData} days`}
+              value={fmtGBP(dailyAvg, true)}
+              sub={`over ${daysElapsed} days`}
               color="var(--accent-primary)"
-              icon={<span style={{ fontSize: '16px' }}>📅</span>}
+              icon={<span>📅</span>}
             />
           </div>
 
-          {/* Monthly income vs spend bar */}
-          <SectionLabel>Income vs Spending (4 months)</SectionLabel>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px', marginBottom: '14px' }}>
-            {overviewData.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', padding: '16px 0' }}>Not enough data yet</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={overviewData} barGap={4} barCategoryGap="30%">
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--font-body)' }} axisLine={false} tickLine={false} />
-                  <YAxis hide />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="Income" fill="var(--accent-green)" radius={[4, 4, 0, 0]} name="Income" />
-                  <Bar dataKey="Spent" fill="var(--accent-primary)" radius={[4, 4, 0, 0]} name="Spent" />
-                </BarChart>
-              </ResponsiveContainer>
+          {/* This month at a glance */}
+          <SLabel>This Month</SLabel>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>GBP Spending</span>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--accent-red)' }}>{fmtGBP(totalSpentGBP)}</span>
+            </div>
+            {hasNGNData && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ fontSize: '13px' }}>🇳🇬</span>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Naira Sent</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--accent-naira)' }}>{fmtNGN(totalSpentNGN)}</p>
+                  {exchangeRate > 0 && <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>≈ {fmtGBP(totalSpentNGN / exchangeRate)}</p>}
+                </div>
+              </div>
             )}
+          </div>
+
+          {/* 4-month chart */}
+          <SLabel>Income vs Spending (4 months)</SLabel>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px', marginBottom: '14px' }}>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={overviewData} barGap={3} barCategoryGap="32%">
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--font-body)' }} axisLine={false} tickLine={false} />
+                <YAxis hide />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="GBP Income" fill="var(--accent-green)" radius={[4,4,0,0]} />
+                <Bar dataKey="GBP Spent" fill="var(--accent-primary)" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '8px' }}>
-              <LegendDot color="var(--accent-green)" label="Income" />
-              <LegendDot color="var(--accent-primary)" label="Spent" />
+              <LDot color="var(--accent-green)" label="Income" />
+              <LDot color="var(--accent-primary)" label="Spent" />
             </div>
           </div>
 
-          {/* Top categories this month */}
-          <SectionLabel>Top Spending This Month</SectionLabel>
+          {/* Top GBP categories */}
+          <SLabel>Top GBP Categories</SLabel>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '14px' }}>
-            {topCats.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', padding: '24px 16px' }}>No spending data yet</p>
-            ) : topCats.map(([cat, amount], i) => {
+            {topGBP.length === 0 ? (
+              <p style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>No GBP spending yet</p>
+            ) : topGBP.map(([cat, amount], i) => {
               const meta = BUDGET_CATEGORIES[cat];
-              const pct = totalSpent > 0 ? (amount / totalSpent) * 100 : 0;
+              const pct = totalSpentGBP > 0 ? (amount / totalSpentGBP) * 100 : 0;
               return (
-                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', borderBottom: i < topCats.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: '8px', background: `${meta.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>
+                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', borderBottom: i < topGBP.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ width: 30, height: 30, borderRadius: '8px', background: `${meta.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>
                     {meta.icon}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                       <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{cat}</span>
-                      <span style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{fmt(amount)}</span>
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{fmtGBP(amount)}</span>
                     </div>
-                    <div style={{ height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, delay: i * 0.1 }}
+                    <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.5, delay: i * 0.08 }}
                         style={{ height: '100%', borderRadius: '2px', background: meta.color }} />
                     </div>
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0, fontWeight: '600' }}>{pct.toFixed(0)}%</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0, fontWeight: '600', minWidth: '28px', textAlign: 'right' }}>{pct.toFixed(0)}%</span>
                 </div>
               );
             })}
@@ -181,89 +198,150 @@ export default function InsightsPage() {
         </motion.div>
       )}
 
-      {/* ── CATEGORIES ── */}
-      {activeView === 'categories' && (
+      {/* ── GBP TAB ── */}
+      {activeView === 'gbp' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <SectionLabel>Category Breakdown — Last 4 Months</SectionLabel>
-          {categoryCompareData.length === 0 ? (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '48px 16px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No data yet — start logging transactions!</p>
-            </div>
-          ) : categoryCompareData.map((row, i) => {
-            const catKey = ALL_CATEGORIES.find(c => c.startsWith(row.category)) || ALL_CATEGORIES[i];
-            const meta = BUDGET_CATEGORIES[catKey] || { color: '#7c6aff', icon: '💳' };
-            const monthValues = data.map(m => ({ name: m.label, value: row[m.label] || 0 }));
+          <SLabel>GBP Category Breakdown — Last 4 Months</SLabel>
+          {ALL_CATEGORIES.filter(cat => data.some(m => (m.byCategory[cat] || 0) > 0)).map((cat, i) => {
+            const meta = BUDGET_CATEGORIES[cat];
+            const monthValues = data.map(m => ({ name: m.label, value: m.byCategory[cat] || 0 }));
             const maxVal = Math.max(...monthValues.map(m => m.value), 1);
             return (
-              <motion.div key={row.category} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', marginBottom: '10px' }}>
+              <motion.div key={cat} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                   <span style={{ fontSize: '18px' }}>{meta.icon}</span>
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{catKey}</span>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{cat}</span>
+                  <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: '700', color: meta.color }}>
+                    {fmtGBP(monthValues[monthValues.length - 1]?.value || 0)}
+                  </span>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', height: '52px' }}>
                   {monthValues.map(mv => (
-                    <div key={mv.name} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '600' }}>{fmt(mv.value)}</span>
-                      <div style={{ width: '100%', background: 'var(--bg-elevated)', borderRadius: '4px', overflow: 'hidden', height: '48px', display: 'flex', alignItems: 'flex-end' }}>
-                        <motion.div
-                          initial={{ height: 0 }} animate={{ height: `${mv.value > 0 ? Math.max((mv.value / maxVal) * 100, 8) : 0}%` }}
+                    <div key={mv.name} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', height: '100%', justifyContent: 'flex-end' }}>
+                      <div style={{ width: '100%', background: 'var(--bg-elevated)', borderRadius: '4px', overflow: 'hidden', flex: 1, display: 'flex', alignItems: 'flex-end' }}>
+                        <motion.div initial={{ height: 0 }} animate={{ height: `${mv.value > 0 ? Math.max((mv.value / maxVal) * 100, 10) : 0}%` }}
                           transition={{ duration: 0.5, delay: i * 0.05 }}
-                          style={{ width: '100%', background: meta.color, borderRadius: '3px' }}
-                        />
+                          style={{ width: '100%', background: meta.color, borderRadius: '3px' }} />
                       </div>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{mv.name}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '600' }}>{mv.name}</span>
                     </div>
                   ))}
                 </div>
               </motion.div>
             );
           })}
+          {!data.some(m => Object.keys(m.byCategory).length > 0) && (
+            <EmptyState msg="No GBP transactions logged yet" />
+          )}
+        </motion.div>
+      )}
+
+      {/* ── NGN TAB ── */}
+      {activeView === 'ngn' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          {/* This month NGN reasons */}
+          <SLabel>What Naira Was Spent On This Month</SLabel>
+          {topNGN.length === 0 ? (
+            <EmptyState msg="No Naira transactions this month" />
+          ) : (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '14px' }}>
+              {topNGN.map(([cat, amount], i) => {
+                const meta = BUDGET_CATEGORIES[cat];
+                const pct = totalSpentNGN > 0 ? (amount / totalSpentNGN) * 100 : 0;
+                return (
+                  <div key={cat} style={{ padding: '12px 14px', borderBottom: i < topNGN.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                      <div style={{ width: 30, height: 30, borderRadius: '8px', background: `${meta.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>
+                        {meta.icon}
+                      </div>
+                      <span style={{ flex: 1, fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{cat}</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: '800', color: 'var(--accent-naira)' }}>{fmtNGN(amount)}</p>
+                        {exchangeRate > 0 && <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>≈ {fmtGBP(amount / exchangeRate)}</p>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ flex: 1, height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.5, delay: i * 0.08 }}
+                          style={{ height: '100%', background: meta.color, borderRadius: '2px' }} />
+                      </div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', minWidth: '30px' }}>{pct.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* NGN over 4 months */}
+          <SLabel>Naira Sent — Last 4 Months</SLabel>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px', marginBottom: '14px' }}>
+            {data.every(d => d.totalNGN === 0) ? (
+              <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', padding: '16px 0' }}>No Naira data across last 4 months</p>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={140}>
+                  <BarChart data={data.map(m => ({ month: m.label, '₦ Sent': m.totalNGN }))} barCategoryGap="35%">
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                    <YAxis hide />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="₦ Sent" fill="var(--accent-naira)" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+                {exchangeRate > 0 && (
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '8px' }}>
+                    GBP equivalents based on rate £1 = ₦{exchangeRate?.toLocaleString()}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </motion.div>
       )}
 
       {/* ── TRENDS ── */}
       {activeView === 'trends' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <SectionLabel>Spending Trend (4 months)</SectionLabel>
+          <SLabel>GBP Trend — 4 Months</SLabel>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px', marginBottom: '14px' }}>
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={180}>
               <LineChart data={overviewData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)', fontFamily: 'var(--font-body)' }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                 <YAxis hide />
                 <Tooltip content={<CustomTooltip />} />
-                <Line type="monotone" dataKey="Spent" stroke="var(--accent-primary)" strokeWidth={2.5} dot={{ fill: 'var(--accent-primary)', r: 4 }} name="Spent" />
-                <Line type="monotone" dataKey="Income" stroke="var(--accent-green)" strokeWidth={2.5} dot={{ fill: 'var(--accent-green)', r: 4 }} name="Income" strokeDasharray="5 3" />
+                <Line type="monotone" dataKey="GBP Spent" stroke="var(--accent-primary)" strokeWidth={2.5} dot={{ fill: 'var(--accent-primary)', r: 4 }} />
+                <Line type="monotone" dataKey="GBP Income" stroke="var(--accent-green)" strokeWidth={2.5} dot={{ fill: 'var(--accent-green)', r: 4 }} strokeDasharray="5 4" />
               </LineChart>
             </ResponsiveContainer>
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '8px' }}>
-              <LegendDot color="var(--accent-primary)" label="Spent" />
-              <LegendDot color="var(--accent-green)" label="Income" dashed />
+              <LDot color="var(--accent-primary)" label="Spent" />
+              <LDot color="var(--accent-green)" label="Income" dashed />
             </div>
           </div>
 
-          {/* Month-over-month summary */}
-          <SectionLabel>Month Summary</SectionLabel>
+          <SLabel>Month by Month</SLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {data.map((m, i) => {
-              const prev = data[i - 1];
-              const diff = prev ? m.total - prev.total : null;
+            {[...data].reverse().map((m, i) => {
+              const prev = data[data.length - 2 - i];
+              const diff = prev ? m.totalGBP - prev.totalGBP : null;
               return (
-                <div key={m.month} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <motion.div key={m.month} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <p style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{m.label}</p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Income: {fmt(m.income)}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Income: {fmtGBP(m.incomeGBP)}{m.totalNGN > 0 ? ` · ₦${fmtNGN(m.totalNGN, true)} sent` : ''}</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: '800', color: 'var(--accent-red)' }}>{fmt(m.total)}</p>
-                    {diff !== null && (
+                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: '800', color: 'var(--accent-red)' }}>{fmtGBP(m.totalGBP)}</p>
+                    {diff !== null && diff !== 0 && (
                       <p style={{ fontSize: '11px', fontWeight: '600', color: diff > 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>
-                        {diff > 0 ? '↑' : '↓'} {fmt(Math.abs(diff))} vs prev
+                        {diff > 0 ? '↑' : '↓'} {fmtGBP(Math.abs(diff))}
                       </p>
                     )}
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -276,9 +354,9 @@ export default function InsightsPage() {
 function KpiCard({ label, value, sub, color, icon }) {
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color, marginBottom: '6px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color, marginBottom: '5px' }}>
         {icon}
-        <span style={{ fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</span>
+        <span style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</span>
       </div>
       <p style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>{value}</p>
       <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{sub}</p>
@@ -286,19 +364,23 @@ function KpiCard({ label, value, sub, color, icon }) {
   );
 }
 
-function SectionLabel({ children }) {
+function SLabel({ children }) {
+  return <p style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700', marginBottom: '8px', paddingLeft: '2px' }}>{children}</p>;
+}
+
+function LDot({ color, label, dashed }) {
   return (
-    <p style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '600', marginBottom: '10px', paddingLeft: '2px' }}>
-      {children}
-    </p>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+      <div style={{ width: 14, height: 3, borderRadius: '2px', background: dashed ? 'transparent' : color, borderTop: dashed ? `2px dashed ${color}` : 'none' }} />
+      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '500' }}>{label}</span>
+    </div>
   );
 }
 
-function LegendDot({ color, label, dashed }) {
+function EmptyState({ msg }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-      <div style={{ width: 12, height: 3, borderRadius: '2px', background: color, borderTop: dashed ? `2px dashed ${color}` : 'none' }} />
-      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '500' }}>{label}</span>
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '32px 16px', textAlign: 'center', marginBottom: '14px' }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{msg}</p>
     </div>
   );
 }
