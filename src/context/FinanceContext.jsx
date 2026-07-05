@@ -3,53 +3,32 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import {
   collection, addDoc, updateDoc, deleteDoc, doc,
   query, where, orderBy, onSnapshot, Timestamp,
-  setDoc, getDoc, getDocs,
+  setDoc, getDoc, getDocs, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
-import { startOfMonth, endOfMonth, format, subMonths, getDate, setDate, isAfter } from 'date-fns';
+import { startOfMonth, endOfMonth, format, subMonths, setDate, isAfter } from 'date-fns';
 import toast from 'react-hot-toast';
 
-export const BUDGET_CATEGORIES = {
-  Housing: {
-    color: '#7c6aff',
-    icon: '🏠',
-    defaultCurrency: 'GBP',
-    suggestions: ['Rent', 'Electricity', 'Council Tax', 'Water', 'Gas', 'Home Insurance', 'Broadband'],
-  },
-  Vehicle: {
-    color: '#f87171',
-    icon: '🚗',
-    defaultCurrency: 'GBP',
-    suggestions: ['Car Finance (Lendable)', 'Car Tax (DVLA)', 'Car Insurance (GoSkippy)', 'Fuel', 'MOT', 'Parking'],
-  },
-  'Household & Family': {
-    color: '#fbbf24',
-    icon: '👨‍👩‍👧',
-    defaultCurrency: 'GBP',
-    suggestions: ['Sky Internet', "Kids' Foodstuffs", 'My Shopping', 'Hajiya Yaya', 'Groceries', 'Clothing'],
-  },
-  'Education & Business': {
-    color: '#4ade80',
-    icon: '📚',
-    defaultCurrency: 'GBP',
-    suggestions: ['Northwest University', 'Dayyib Corporation', 'Books', 'Courses', 'Software'],
-  },
-  'Support & Obligations': {
-    color: '#fb923c',
-    icon: '🤝',
-    defaultCurrency: 'NGN', // most transfers to Nigeria will be NGN
-    suggestions: ['Landowners', 'Family Support (Babayi)', 'Abba Yakasai Generation', 'Charity', 'Zakat', 'Gifts'],
-  },
-  Savings: {
-    color: '#38bdf8',
-    icon: '💰',
-    defaultCurrency: 'GBP',
-    suggestions: ['Emergency Fund', 'Savings', 'Investment', 'Pension'],
-  },
+// ─── BASE CATEGORIES ─────────────────────────────────────────────────────────
+export const BASE_CATEGORIES = {
+  Housing: { color: '#7c6aff', icon: '🏠', defaultCurrency: 'GBP', suggestions: ['Rent', 'Electricity', 'Council Tax', 'Water', 'Gas', 'Home Insurance', 'Broadband'] },
+  Vehicle: { color: '#f87171', icon: '🚗', defaultCurrency: 'GBP', suggestions: ['Car Finance (Lendable)', 'Car Tax (DVLA)', 'Car Insurance (GoSkippy)', 'Fuel', 'MOT', 'Parking'] },
+  'Household & Family': { color: '#fbbf24', icon: '👨‍👩‍👧', defaultCurrency: 'GBP', suggestions: ["Sky Internet", "Kids' Foodstuffs", 'My Shopping', 'Hajiya Yaya', 'Groceries', 'Clothing'] },
+  'Education & Business': { color: '#4ade80', icon: '📚', defaultCurrency: 'GBP', suggestions: ['Northwest University', 'Dayyib Corporation', 'Books', 'Courses', 'Software'] },
+  'Support & Obligations': { color: '#fb923c', icon: '🤝', defaultCurrency: 'NGN', suggestions: ['Landowners', 'Family Support (Babayi)', 'Abba Yakasai Generation', 'Charity', 'Zakat', 'Gifts'] },
+  Savings: { color: '#38bdf8', icon: '💰', defaultCurrency: 'GBP', suggestions: ['Emergency Fund', 'Savings', 'Investment', 'Pension'] },
 };
 
-export const ALL_CATEGORIES = Object.keys(BUDGET_CATEGORIES);
+// ─── INCOME SOURCES ───────────────────────────────────────────────────────────
+export const INCOME_SOURCES = [
+  { id: 'salary',    label: 'Salary',          icon: '💼', color: '#4ade80' },
+  { id: 'freelance', label: 'Freelance',        icon: '💻', color: '#7c6aff' },
+  { id: 'trading',   label: 'Trading',          icon: '📈', color: '#38bdf8' },
+  { id: 'stipend',   label: 'Grant / Stipend',  icon: '🎓', color: '#fb923c' },
+  { id: 'borrowed',  label: 'Borrowed',         icon: '🤝', color: '#f87171', isBorrowed: true },
+  { id: 'other',     label: 'Other',            icon: '➕', color: '#9898b0' },
+];
 
 export function getBudgetStatus(spent, budgeted) {
   if (!budgeted) return { pct: 0, color: 'var(--text-muted)', label: 'No budget', level: 'none' };
@@ -67,11 +46,17 @@ export function FinanceProvider({ children }) {
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState({});
   const [savingsGoals, setSavingsGoals] = useState([]);
-  const [salarySettings, setSalarySettings] = useState(null); // { amountGBP, amountNGN, dayOfMonth, currency }
+  const [customCategories, setCustomCategories] = useState({});
+  const [salarySettings, setSalarySettings] = useState(null);
+  const [borrowedItems, setBorrowedItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
 
-  // Transactions
+  // Merged categories (base + custom)
+  const BUDGET_CATEGORIES = { ...BASE_CATEGORIES, ...customCategories };
+  const ALL_CATEGORIES = Object.keys(BUDGET_CATEGORIES);
+
+  // ── Listeners ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     const monthStart = startOfMonth(new Date(currentMonth + '-01'));
@@ -87,7 +72,6 @@ export function FinanceProvider({ children }) {
     });
   }, [user, currentMonth]);
 
-  // Budgets
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'users', user.uid, 'budgets'), where('month', '==', currentMonth));
@@ -98,7 +82,6 @@ export function FinanceProvider({ children }) {
     });
   }, [user, currentMonth]);
 
-  // Savings
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'users', user.uid, 'savingsGoals'), orderBy('createdAt', 'desc'));
@@ -108,91 +91,118 @@ export function FinanceProvider({ children }) {
     });
   }, [user]);
 
-  // Salary settings (stored in currency settings doc)
+  // Custom categories
   useEffect(() => {
     if (!user) return;
-    return onSnapshot(doc(db, 'users', user.uid, 'settings', 'currency'), snap => {
-      if (snap.exists() && snap.data().salaryConfig) {
-        setSalarySettings(snap.data().salaryConfig);
-      }
+    return onSnapshot(doc(db, 'users', user.uid, 'settings', 'categories'), snap => {
+      if (snap.exists()) setCustomCategories(snap.data().categories || {});
     });
   }, [user]);
 
-  // ── Computed values ──────────────────────────────────────────────────────
-  // GBP transactions
-  const gbpTransactions = transactions.filter(t => !t.currency || t.currency === 'GBP');
-  const ngnTransactions = transactions.filter(t => t.currency === 'NGN');
+  // Salary & borrowed from settings
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(doc(db, 'users', user.uid, 'settings', 'currency'), snap => {
+      if (snap.exists() && snap.data().salaryConfig) setSalarySettings(snap.data().salaryConfig);
+    });
+  }, [user]);
 
-  // GBP totals (salary-based income is the base, extra income transactions add on top)
-  const extraIncomeGBP = gbpTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const salaryGBP = salarySettings?.currency === 'GBP' ? (salarySettings?.amountGBP || 0) : 0;
-  const totalIncomeGBP = salaryGBP + extraIncomeGBP;
-  const totalSpentGBP = gbpTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const balanceGBP = totalIncomeGBP - totalSpentGBP;
+  // Borrowed items
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'users', user.uid, 'borrowed'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap => {
+      setBorrowedItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  }, [user]);
 
-  // NGN totals
-  const totalSpentNGN = ngnTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const totalIncomeNGN = ngnTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const salaryNGN = salarySettings?.currency === 'NGN' ? (salarySettings?.amountNGN || 0) : 0;
+  // ── Account balances ──────────────────────────────────────────────────────
+  // We compute running balances from ALL transactions (not just current month)
+  // For simplicity we use currentMonth transactions + salary as the monthly view
+  // True account balance needs all-time data — we'll store it as a snapshot
 
-  // Spending by category (in native currency of each transaction)
+  const getAccountBalance = (currency) => {
+    // Income for this currency
+    const income = transactions
+      .filter(t => t.type === 'income' && t.account === currency && !t.isBorrowed)
+      .reduce((s, t) => s + t.amount, 0);
+    // Salary contribution
+    const salaryIncome = salarySettings?.currency === currency
+      ? (currency === 'GBP' ? (salarySettings.amountGBP || 0) : (salarySettings.amountNGN || 0))
+      : 0;
+    // Transfers in
+    const transfersIn = transactions
+      .filter(t => t.type === 'transfer_in' && t.account === currency)
+      .reduce((s, t) => s + t.amount, 0);
+    // Expenses
+    const expenses = transactions
+      .filter(t => t.type === 'expense' && t.account === currency)
+      .reduce((s, t) => s + t.amount, 0);
+    // Transfers out
+    const transfersOut = transactions
+      .filter(t => t.type === 'transfer_out' && t.account === currency)
+      .reduce((s, t) => s + t.amount, 0);
+
+    return salaryIncome + income + transfersIn - expenses - transfersOut;
+  };
+
+  const balanceGBP = getAccountBalance('GBP');
+  const balanceNGN = getAccountBalance('NGN');
+
+  // Totals for display
+  const totalSpentGBP = transactions.filter(t => t.type === 'expense' && t.account === 'GBP').reduce((s, t) => s + t.amount, 0);
+  const totalSpentNGN = transactions.filter(t => t.type === 'expense' && t.account === 'NGN').reduce((s, t) => s + t.amount, 0);
+  const totalIncomeGBP = transactions.filter(t => t.type === 'income' && t.account === 'GBP').reduce((s, t) => s + t.amount, 0)
+    + (salarySettings?.currency === 'GBP' ? (salarySettings.amountGBP || 0) : 0);
+  const totalIncomeNGN = transactions.filter(t => t.type === 'income' && t.account === 'NGN').reduce((s, t) => s + t.amount, 0)
+    + (salarySettings?.currency === 'NGN' ? (salarySettings.amountNGN || 0) : 0);
+
   const spentByCategory = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => {
-      // For budget comparison, we only track GBP spending against GBP budgets
-      // NGN is tracked separately
-      if (!t.currency || t.currency === 'GBP') {
-        acc[t.category] = (acc[t.category] || 0) + t.amount;
-      }
-      return acc;
-    }, {});
+    .filter(t => t.type === 'expense' && t.account === 'GBP')
+    .reduce((acc, t) => { acc[t.category] = (acc[t.category] || 0) + t.amount; return acc; }, {});
 
   const spentByCategoryNGN = transactions
-    .filter(t => t.type === 'expense' && t.currency === 'NGN')
-    .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount;
-      return acc;
-    }, {});
+    .filter(t => t.type === 'expense' && t.account === 'NGN')
+    .reduce((acc, t) => { acc[t.category] = (acc[t.category] || 0) + t.amount; return acc; }, {});
 
   const spentBySubItem = transactions
-    .filter(t => t.type === 'expense' && t.subItem && (!t.currency || t.currency === 'GBP'))
-    .reduce((acc, t) => {
-      const key = `${t.category}::${t.subItem}`;
-      acc[key] = (acc[key] || 0) + t.amount;
-      return acc;
-    }, {});
+    .filter(t => t.type === 'expense' && t.account === 'GBP' && t.subItem)
+    .reduce((acc, t) => { const k = `${t.category}::${t.subItem}`; acc[k] = (acc[k] || 0) + t.amount; return acc; }, {});
 
   const unbudgetedCategories = ALL_CATEGORIES.filter(
     cat => (spentByCategory[cat] || 0) > 0 && !budgets[cat]?.amount
   );
 
-  // Salary next payment date
-  const getSalaryNextDate = () => {
-    if (!salarySettings?.dayOfMonth) return null;
-    const today = new Date();
-    const thisMonthDate = setDate(new Date(), salarySettings.dayOfMonth);
-    if (isAfter(thisMonthDate, today)) return thisMonthDate;
-    // Next month
-    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, salarySettings.dayOfMonth);
-    return nextMonth;
-  };
-
-  // ── CRUD ─────────────────────────────────────────────────────────────────
-
+  // ── Add transaction (with balance check) ─────────────────────────────────
   const addTransaction = async (data) => {
     if (!user) return;
+    const account = data.account || 'GBP';
+
+    // Balance check for expenses
+    if (data.type === 'expense') {
+      const currentBalance = getAccountBalance(account);
+      if (data.amount > currentBalance) {
+        toast.error(
+          `Not enough in your ${account} account. Balance: ${account === 'GBP' ? '£' : '₦'}${currentBalance.toLocaleString()}`,
+          { duration: 5000, icon: '🚫' }
+        );
+        return false; // signal failure
+      }
+    }
+
     await addDoc(collection(db, 'users', user.uid, 'transactions'), {
       ...data,
-      currency: data.currency || 'GBP',
+      account,
       date: Timestamp.fromDate(data.date || new Date()),
       createdAt: Timestamp.now(),
       notes: data.notes || '',
       recurring: data.recurring || false,
       subItem: data.subItem || '',
+      isBorrowed: data.isBorrowed || false,
     });
 
-    // Budget overrun check (GBP only)
-    if (data.type === 'expense' && (!data.currency || data.currency === 'GBP') && budgets[data.category]) {
+    // Budget overrun check
+    if (data.type === 'expense' && account === 'GBP' && budgets[data.category]) {
       const currentSpent = spentByCategory[data.category] || 0;
       const newSpent = currentSpent + data.amount;
       const budgeted = budgets[data.category]?.amount || 0;
@@ -206,6 +216,73 @@ export function FinanceProvider({ children }) {
     } else {
       toast.success('Transaction added');
     }
+
+    // If it's borrowed money, also add to borrowed tracker
+    if (data.isBorrowed) {
+      await addDoc(collection(db, 'users', user.uid, 'borrowed'), {
+        description: data.description || 'Borrowed funds',
+        amount: data.amount,
+        account,
+        repaid: false,
+        createdAt: Timestamp.now(),
+        date: Timestamp.fromDate(data.date || new Date()),
+      });
+    }
+
+    return true;
+  };
+
+  // ── Transfer between accounts ─────────────────────────────────────────────
+  const transferBetweenAccounts = async ({ fromAccount, toAccount, fromAmount, toAmount, notes, date, exchangeRate }) => {
+    if (!user) return false;
+
+    // Check balance
+    const fromBalance = getAccountBalance(fromAccount);
+    if (fromAmount > fromBalance) {
+      toast.error(
+        `Not enough in ${fromAccount} account. Balance: ${fromAccount === 'GBP' ? '£' : '₦'}${fromBalance.toLocaleString()}`,
+        { duration: 5000, icon: '🚫' }
+      );
+      return false;
+    }
+
+    const batch = writeBatch(db);
+    const now = Timestamp.fromDate(date || new Date());
+    const transferId = Date.now().toString();
+
+    // Debit from source
+    const outRef = doc(collection(db, 'users', user.uid, 'transactions'));
+    batch.set(outRef, {
+      type: 'transfer_out',
+      account: fromAccount,
+      amount: fromAmount,
+      toAccount,
+      transferId,
+      description: `Transfer to ${toAccount}`,
+      notes: notes || '',
+      date: now,
+      createdAt: Timestamp.now(),
+      exchangeRate: exchangeRate || null,
+    });
+
+    // Credit to destination
+    const inRef = doc(collection(db, 'users', user.uid, 'transactions'));
+    batch.set(inRef, {
+      type: 'transfer_in',
+      account: toAccount,
+      amount: toAmount,
+      fromAccount,
+      transferId,
+      description: `Transfer from ${fromAccount}`,
+      notes: notes || '',
+      date: now,
+      createdAt: Timestamp.now(),
+      exchangeRate: exchangeRate || null,
+    });
+
+    await batch.commit();
+    toast.success(`Transferred ${fromAccount === 'GBP' ? '£' : '₦'}${fromAmount.toLocaleString()} → ${toAccount === 'GBP' ? '£' : '₦'}${toAmount.toLocaleString()}`);
+    return true;
   };
 
   const deleteTransaction = async (id) => {
@@ -214,15 +291,17 @@ export function FinanceProvider({ children }) {
     toast.success('Transaction deleted');
   };
 
-  const upsertBudget = async (category, amount, subItems) => {
+  // ── Budget CRUD ───────────────────────────────────────────────────────────
+  const upsertBudget = async (category, amount, subItems, budgetCurrency) => {
     if (!user) return;
     const existing = budgets[category];
-    const payload = { category, amount: Number(amount), month: currentMonth, subItems: subItems || [] };
-    if (existing) {
-      await updateDoc(doc(db, 'users', user.uid, 'budgets', existing.id), payload);
-    } else {
-      await addDoc(collection(db, 'users', user.uid, 'budgets'), payload);
-    }
+    const payload = {
+      category, amount: Number(amount), month: currentMonth,
+      subItems: subItems || [],
+      budgetCurrency: budgetCurrency || 'GBP',
+    };
+    if (existing) await updateDoc(doc(db, 'users', user.uid, 'budgets', existing.id), payload);
+    else await addDoc(collection(db, 'users', user.uid, 'budgets'), payload);
   };
 
   const addSubItem = async (category, subItem) => {
@@ -230,7 +309,7 @@ export function FinanceProvider({ children }) {
     const existing = budgets[category];
     const currentSubs = existing?.subItems || [];
     const newSubs = [...currentSubs, { name: subItem.name, budget: Number(subItem.budget || 0), id: Date.now().toString() }];
-    await upsertBudget(category, newSubs.reduce((s, si) => s + si.budget, 0), newSubs);
+    await upsertBudget(category, newSubs.reduce((s, si) => s + si.budget, 0), newSubs, existing?.budgetCurrency || 'GBP');
     toast.success('Sub-item added');
   };
 
@@ -238,101 +317,114 @@ export function FinanceProvider({ children }) {
     if (!user) return;
     const existing = budgets[category];
     const newSubs = (existing?.subItems || []).map(si => si.id === subId ? { ...si, ...updates } : si);
-    await upsertBudget(category, newSubs.reduce((s, si) => s + si.budget, 0), newSubs);
+    await upsertBudget(category, newSubs.reduce((s, si) => s + si.budget, 0), newSubs, existing?.budgetCurrency || 'GBP');
   };
 
   const deleteSubItem = async (category, subId) => {
     if (!user) return;
     const existing = budgets[category];
     const newSubs = (existing?.subItems || []).filter(si => si.id !== subId);
-    await upsertBudget(category, newSubs.reduce((s, si) => s + si.budget, 0), newSubs);
+    await upsertBudget(category, newSubs.reduce((s, si) => s + si.budget, 0), newSubs, existing?.budgetCurrency || 'GBP');
     toast.success('Sub-item removed');
   };
 
+  // ── Custom categories ─────────────────────────────────────────────────────
+  const addCustomCategory = async (cat) => {
+    if (!user) return;
+    const updated = { ...customCategories, [cat.name]: { color: cat.color, icon: cat.icon, defaultCurrency: cat.defaultCurrency, suggestions: [], custom: true } };
+    await setDoc(doc(db, 'users', user.uid, 'settings', 'categories'), { categories: updated }, { merge: true });
+    toast.success(`Category "${cat.name}" added`);
+  };
+
+  const deleteCustomCategory = async (name) => {
+    if (!user) return;
+    const updated = { ...customCategories };
+    delete updated[name];
+    await setDoc(doc(db, 'users', user.uid, 'settings', 'categories'), { categories: updated });
+    toast.success(`Category removed`);
+  };
+
+  // ── Savings ───────────────────────────────────────────────────────────────
   const addSavingsGoal = async (data) => {
     if (!user) return;
     await addDoc(collection(db, 'users', user.uid, 'savingsGoals'), { ...data, currentAmount: 0, createdAt: Timestamp.now() });
     toast.success('Savings goal created!');
   };
-
   const updateSavingsGoal = async (id, updates) => {
     if (!user) return;
     await updateDoc(doc(db, 'users', user.uid, 'savingsGoals', id), updates);
     toast.success('Goal updated!');
   };
-
   const deleteSavingsGoal = async (id) => {
     if (!user) return;
     await deleteDoc(doc(db, 'users', user.uid, 'savingsGoals', id));
     toast.success('Goal deleted');
   };
 
-  // Insights: last N months
+  // ── Borrowed ──────────────────────────────────────────────────────────────
+  const markBorrowedRepaid = async (id) => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid, 'borrowed', id), { repaid: true, repaidAt: Timestamp.now() });
+    toast.success('Marked as repaid');
+  };
+
+  // ── Salary ────────────────────────────────────────────────────────────────
+  const getSalaryNextDate = () => {
+    if (!salarySettings?.dayOfMonth) return null;
+    const today = new Date();
+    const thisMonthDate = setDate(new Date(), salarySettings.dayOfMonth);
+    if (isAfter(thisMonthDate, today)) return thisMonthDate;
+    return new Date(today.getFullYear(), today.getMonth() + 1, salarySettings.dayOfMonth);
+  };
+
+  // ── Insights ──────────────────────────────────────────────────────────────
   const fetchInsightsData = async (numMonths = 4) => {
     if (!user) return [];
     const results = [];
     for (let i = numMonths - 1; i >= 0; i--) {
       const monthDate = subMonths(new Date(), i);
       const monthKey = format(monthDate, 'yyyy-MM');
-      const monthStart = startOfMonth(monthDate);
-      const monthEnd = endOfMonth(monthDate);
-
       const q = query(
         collection(db, 'users', user.uid, 'transactions'),
-        where('date', '>=', Timestamp.fromDate(monthStart)),
-        where('date', '<=', Timestamp.fromDate(monthEnd)),
+        where('date', '>=', Timestamp.fromDate(startOfMonth(monthDate))),
+        where('date', '<=', Timestamp.fromDate(endOfMonth(monthDate))),
       );
       const snap = await getDocs(q);
-
-      const byCategory = {};
-      const byCategoryNGN = {};
+      const byCategory = {}, byCategoryNGN = {};
       let totalGBP = 0, totalNGN = 0, incomeGBP = 0, incomeNGN = 0;
-
       snap.docs.forEach(d => {
         const tx = d.data();
-        const isNGN = tx.currency === 'NGN';
+        const acct = tx.account || (tx.currency === 'NGN' ? 'NGN' : 'GBP');
         if (tx.type === 'expense') {
-          if (isNGN) {
-            byCategoryNGN[tx.category] = (byCategoryNGN[tx.category] || 0) + tx.amount;
-            totalNGN += tx.amount;
-          } else {
-            byCategory[tx.category] = (byCategory[tx.category] || 0) + tx.amount;
-            totalGBP += tx.amount;
-          }
-        } else {
-          if (isNGN) incomeNGN += tx.amount;
-          else incomeGBP += tx.amount;
+          if (acct === 'NGN') { byCategoryNGN[tx.category] = (byCategoryNGN[tx.category] || 0) + tx.amount; totalNGN += tx.amount; }
+          else { byCategory[tx.category] = (byCategory[tx.category] || 0) + tx.amount; totalGBP += tx.amount; }
+        } else if (tx.type === 'income') {
+          if (acct === 'NGN') incomeNGN += tx.amount; else incomeGBP += tx.amount;
         }
       });
-
-      // Add salary to income
       if (salarySettings) {
         if (salarySettings.currency === 'GBP') incomeGBP += salarySettings.amountGBP || 0;
         else incomeNGN += salarySettings.amountNGN || 0;
       }
-
-      results.push({
-        month: monthKey,
-        label: format(monthDate, 'MMM'),
-        byCategory, byCategoryNGN,
-        totalGBP, totalNGN,
-        incomeGBP, incomeNGN,
-      });
+      results.push({ month: monthKey, label: format(monthDate, 'MMM'), byCategory, byCategoryNGN, totalGBP, totalNGN, incomeGBP, incomeNGN });
     }
     return results;
   };
 
   return (
     <FinanceContext.Provider value={{
-      transactions, budgets, savingsGoals, salarySettings,
-      loading, currentMonth, setCurrentMonth,
-      totalIncomeGBP, totalSpentGBP, balanceGBP,
-      totalSpentNGN, totalIncomeNGN, salaryNGN,
+      transactions, budgets, savingsGoals, customCategories, borrowedItems,
+      salarySettings, loading, currentMonth, setCurrentMonth,
+      BUDGET_CATEGORIES, ALL_CATEGORIES,
+      balanceGBP, balanceNGN,
+      totalSpentGBP, totalSpentNGN, totalIncomeGBP, totalIncomeNGN,
       spentByCategory, spentByCategoryNGN, spentBySubItem, unbudgetedCategories,
       getSalaryNextDate,
-      addTransaction, deleteTransaction,
+      addTransaction, deleteTransaction, transferBetweenAccounts,
       upsertBudget, addSubItem, updateSubItem, deleteSubItem,
+      addCustomCategory, deleteCustomCategory,
       addSavingsGoal, updateSavingsGoal, deleteSavingsGoal,
+      markBorrowedRepaid,
       fetchInsightsData,
     }}>
       {children}

@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { TrendingDown, TrendingUp, ChevronRight, Plus, AlertTriangle, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import TransferSheet from '../components/transfer/TransferSheet';
 import AddTransactionSheet from '../components/transactions/AddTransactionSheet';
 
 const stagger = {
@@ -23,6 +24,7 @@ export default function DashboardPage() {
   } = useFinance();
   const { exchangeRate } = useCurrency();
   const [showAddTx, setShowAddTx] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
 
   const recentTx = transactions.slice(0, 6);
 
@@ -62,35 +64,54 @@ export default function DashboardPage() {
               borderRadius: '50%', background: 'radial-gradient(circle, var(--accent-primary-dim) 0%, transparent 70%)',
               pointerEvents: 'none',
             }} />
-            <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.2px', fontWeight: '700', marginBottom: '4px' }}>
-              GBP Balance
+            <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.2px', fontWeight: '700', marginBottom: '12px' }}>
+              Accounts
             </p>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', marginBottom: '16px' }}>
-              <span style={{
-                fontFamily: 'var(--font-display)', fontSize: '40px', fontWeight: '800', letterSpacing: '-1.5px',
-                color: balanceGBP >= 0 ? 'var(--accent-green)' : 'var(--accent-red)', lineHeight: 1,
-              }}>
-                {balanceGBP < 0 ? '-' : ''}{fmtGBP(Math.abs(balanceGBP))}
-              </span>
-              {balanceGBP < 0 && (
-                <span style={{ color: 'var(--accent-red)', fontSize: '13px', marginBottom: '6px', fontWeight: '700' }}>overdrawn</span>
-              )}
-            </div>
-
-            {/* Income / Spent pills */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: salarySettings?.amountGBP ? '12px' : '0' }}>
-              <StatPill icon={<TrendingUp size={12} />} label="Income" value={fmtGBP(totalIncomeGBP)} color="var(--accent-green)" />
-              <StatPill icon={<TrendingDown size={12} />} label="Spent" value={fmtGBP(totalSpentGBP)} color="var(--accent-red)" />
+            {/* Two account balances side by side */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', padding: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '14px' }}>🇬🇧</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700' }}>GBP</span>
+                </div>
+                <p style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: '800', color: balanceGBP >= 0 ? 'var(--accent-green)' : 'var(--accent-red)', letterSpacing: '-0.5px' }}>
+                  {balanceGBP < 0 ? '-' : ''}{fmtGBP(Math.abs(balanceGBP))}
+                </p>
+                <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  In: {fmtGBP(totalIncomeGBP)} · Out: {fmtGBP(totalSpentGBP)}
+                </p>
+              </div>
+              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--accent-naira-dim)', borderRadius: 'var(--radius-md)', padding: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '14px' }}>🇳🇬</span>
+                  <span style={{ fontSize: '11px', color: 'var(--accent-naira)', fontWeight: '700' }}>NGN</span>
+                </div>
+                <p style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: '800', color: balanceNGN >= 0 ? 'var(--accent-naira)' : 'var(--accent-red)', letterSpacing: '-0.5px' }}>
+                  {balanceNGN < 0 ? '-' : ''}{fmtNGN(Math.abs(balanceNGN), true)}
+                </p>
+                <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Out: {fmtNGN(totalSpentNGN, true)}
+                </p>
+              </div>
             </div>
 
             {/* Salary chip */}
-            {salarySettings?.amountGBP > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-                <Calendar size={12} color="var(--text-muted)" />
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  Salary {fmtGBP(salarySettings.amountGBP)}
-                  {daysUntilSalary !== null && ` · ${daysUntilSalary === 0 ? 'today!' : `in ${daysUntilSalary}d`}`}
-                </span>
+            {salarySettings?.dayOfMonth && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Calendar size={12} color="var(--text-muted)" />
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    Salary {salarySettings.currency === 'GBP' ? fmtGBP(salarySettings.amountGBP) : fmtNGN(salarySettings.amountNGN, true)}
+                    {daysUntilSalary !== null && ` · ${daysUntilSalary === 0 ? 'pays today! 🎉' : daysUntilSalary === 1 ? 'tomorrow' : `in ${daysUntilSalary} days`}`}
+                  </span>
+                </div>
+                <button onClick={() => setShowTransfer(true)} style={{
+                  display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700',
+                  color: 'var(--accent-primary)', background: 'var(--accent-primary-dim)',
+                  border: '1px solid var(--accent-primary)', borderRadius: '6px', padding: '4px 8px',
+                }}>
+                  ⇄ Convert
+                </button>
               </div>
             )}
           </div>

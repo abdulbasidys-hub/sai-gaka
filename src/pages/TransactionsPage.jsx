@@ -4,12 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useFinance, BUDGET_CATEGORIES, ALL_CATEGORIES } from '../context/FinanceContext';
 import { fmtGBP, fmtNGN } from '../context/CurrencyContext';
 import { format } from 'date-fns';
-import { Trash2, Plus, SlidersHorizontal, RefreshCw, StickyNote } from 'lucide-react';
+import { Trash2, Plus, SlidersHorizontal, RefreshCw, StickyNote, ArrowLeftRight } from 'lucide-react';
 import AddTransactionSheet from '../components/transactions/AddTransactionSheet';
+import TransferSheet from '../components/transfer/TransferSheet';
 
 export default function TransactionsPage() {
   const { transactions, deleteTransaction, totalSpentGBP, totalSpentNGN, totalIncomeGBP } = useFinance();
   const [showAdd, setShowAdd] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const [filterCat, setFilterCat] = useState('All');
   const [filterType, setFilterType] = useState('all');
   const [filterCurrency, setFilterCurrency] = useState('all');
@@ -154,6 +156,19 @@ export default function TransactionsPage() {
       </div>
 
       {/* FAB */}
+      {/* Transfer button */}
+      <motion.button onClick={() => setShowTransfer(true)} whileTap={{ scale: 0.9 }}
+        style={{
+          position: 'fixed', bottom: 'calc(var(--bottom-nav-height) + 16px)', right: '82px',
+          width: 44, height: 44, borderRadius: '50%',
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-card)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 90,
+          color: 'var(--accent-primary)',
+        }}>
+        <ArrowLeftRight size={18} />
+      </motion.button>
+
       <motion.button onClick={() => setShowAdd(true)} whileTap={{ scale: 0.9 }}
         style={{
           position: 'fixed', bottom: 'calc(var(--bottom-nav-height) + 16px)', right: '20px',
@@ -165,7 +180,9 @@ export default function TransactionsPage() {
         <Plus size={22} color="#fff" strokeWidth={2.5} />
       </motion.button>
 
+      <BorrowedTracker />
       <AddTransactionSheet open={showAdd} onClose={() => setShowAdd(false)} />
+      <TransferSheet open={showTransfer} onClose={() => setShowTransfer(false)} />
     </>
   );
 }
@@ -226,6 +243,37 @@ function TxRow({ tx, onDelete, last }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Borrowed Tracker (exported for reuse) ─────────────────────────────────
+export function BorrowedTracker() {
+  const { borrowedItems, markBorrowedRepaid } = useFinance();
+  const { fmtGBP: _, fmtNGN: __ } = {}; // unused — formatted inline
+  const { fmtGBP: fmt2, fmtNGN: fmt3 } = { fmtGBP: (n) => `£${n?.toLocaleString()}`, fmtNGN: (n) => `₦${n?.toLocaleString()}` };
+  if (!borrowedItems || borrowedItems.length === 0) return null;
+  const unpaid = borrowedItems.filter(b => !b.repaid);
+  if (unpaid.length === 0) return null;
+  return (
+    <div style={{ margin: '0 16px 12px', background: 'var(--accent-red-dim)', border: '1px solid var(--accent-red)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+      <p style={{ padding: '10px 14px 6px', fontSize: '11px', fontWeight: '700', color: 'var(--accent-red)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        🤝 Borrowed Money ({unpaid.length})
+      </p>
+      {unpaid.map(b => (
+        <div key={b.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', gap: '10px', borderTop: '1px solid var(--accent-red-dim)' }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{b.description}</p>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{b.account} · {b.date?.toDate ? new Date(b.date.toDate()).toLocaleDateString('en-GB') : ''}</p>
+          </div>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: '800', color: 'var(--accent-red)' }}>
+            {b.account === 'NGN' ? `₦${b.amount?.toLocaleString()}` : `£${b.amount?.toLocaleString()}`}
+          </span>
+          <button onClick={() => markBorrowedRepaid(b.id)} style={{ background: 'var(--accent-green)', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: '700', fontFamily: 'var(--font-display)', flexShrink: 0 }}>
+            Repaid ✓
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
