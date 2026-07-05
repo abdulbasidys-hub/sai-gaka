@@ -1,7 +1,7 @@
 // src/pages/TransactionsPage.jsx
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useFinance, BUDGET_CATEGORIES, ALL_CATEGORIES } from '../context/FinanceContext';
+import { useFinance } from '../context/FinanceContext';
 import { fmtGBP, fmtNGN } from '../context/CurrencyContext';
 import { format } from 'date-fns';
 import { Trash2, Plus, SlidersHorizontal, RefreshCw, StickyNote, ArrowLeftRight } from 'lucide-react';
@@ -9,7 +9,7 @@ import AddTransactionSheet from '../components/transactions/AddTransactionSheet'
 import TransferSheet from '../components/transfer/TransferSheet';
 
 export default function TransactionsPage() {
-  const { transactions, deleteTransaction, totalSpentGBP, totalSpentNGN, totalIncomeGBP } = useFinance();
+  const { transactions, deleteTransaction, totalSpentGBP, totalSpentNGN, totalIncomeGBP, borrowedItems, markBorrowedRepaid, BUDGET_CATEGORIES, ALL_CATEGORIES } = useFinance();
   const [showAdd, setShowAdd] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [filterCat, setFilterCat] = useState('All');
@@ -250,7 +250,6 @@ function TxRow({ tx, onDelete, last }) {
 // ── Borrowed Tracker (exported for reuse) ─────────────────────────────────
 export function BorrowedTracker() {
   const { borrowedItems, markBorrowedRepaid } = useFinance();
-  const { fmtGBP: _, fmtNGN: __ } = {}; // unused — formatted inline
   const { fmtGBP: fmt2, fmtNGN: fmt3 } = { fmtGBP: (n) => `£${n?.toLocaleString()}`, fmtNGN: (n) => `₦${n?.toLocaleString()}` };
   if (!borrowedItems || borrowedItems.length === 0) return null;
   const unpaid = borrowedItems.filter(b => !b.repaid);

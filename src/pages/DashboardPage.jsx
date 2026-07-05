@@ -1,7 +1,7 @@
 // src/pages/DashboardPage.jsx
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useFinance, BUDGET_CATEGORIES, getBudgetStatus } from '../context/FinanceContext';
+import { useFinance, getBudgetStatus } from '../context/FinanceContext';
 import { useCurrency, fmtGBP, fmtNGN } from '../context/CurrencyContext';
 import { format } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
@@ -21,6 +21,7 @@ export default function DashboardPage() {
     totalSpentNGN, totalIncomeNGN,
     transactions, spentByCategory, spentByCategoryNGN,
     budgets, unbudgetedCategories, salarySettings, getSalaryNextDate,
+    BUDGET_CATEGORIES, ALL_CATEGORIES,
   } = useFinance();
   const { exchangeRate } = useCurrency();
   const [showAddTx, setShowAddTx] = useState(false);

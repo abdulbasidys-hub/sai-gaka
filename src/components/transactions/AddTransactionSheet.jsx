@@ -7,7 +7,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import TransferSheet from '../transfer/TransferSheet';
 
 export default function AddTransactionSheet({ open, onClose }) {
-  const { addTransaction, BUDGET_CATEGORIES, ALL_CATEGORIES, balanceGBP, balanceNGN } = useFinance();
+  const { addTransaction, BUDGET_CATEGORIES, ALL_CATEGORIES, balanceGBP, balanceNGN, budgets } = useFinance();
   const { exchangeRate } = useCurrency();
 
   const [type, setType] = useState('expense');
@@ -52,7 +52,7 @@ export default function AddTransactionSheet({ open, onClose }) {
   }, [type]);
 
   const catMeta = BUDGET_CATEGORIES[category];
-  const storedSubItems = category ? (useFinance().budgets[category]?.subItems || []) : [];
+  const storedSubItems = category ? (budgets[category]?.subItems || []) : [];
   const subItemOptions = storedSubItems.length > 0
     ? storedSubItems.map(si => si.name)
     : (catMeta?.suggestions || []);

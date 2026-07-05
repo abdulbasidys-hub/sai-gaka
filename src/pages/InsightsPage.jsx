@@ -1,7 +1,7 @@
 // src/pages/InsightsPage.jsx
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useFinance, BUDGET_CATEGORIES, ALL_CATEGORIES } from '../context/FinanceContext';
+import { useFinance } from '../context/FinanceContext';
 import { useCurrency, fmtGBP, fmtNGN } from '../context/CurrencyContext';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LineChart, Line, CartesianGrid } from 'recharts';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
@@ -21,7 +21,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function InsightsPage() {
-  const { fetchInsightsData, spentByCategory, spentByCategoryNGN, totalSpentGBP, totalSpentNGN, transactions } = useFinance();
+  const { fetchInsightsData, spentByCategory, spentByCategoryNGN, totalSpentGBP, totalSpentNGN, transactions, BUDGET_CATEGORIES, ALL_CATEGORIES } = useFinance();
   const { exchangeRate } = useCurrency();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
