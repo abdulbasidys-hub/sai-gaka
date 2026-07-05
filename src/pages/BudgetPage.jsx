@@ -25,8 +25,10 @@ export default function BudgetPage() {
   const [addingSubTo, setAddingSubTo] = useState(null);
   const [newSubName, setNewSubName] = useState('');
   const [newSubBudget, setNewSubBudget] = useState('');
+  const [newSubCurrency, setNewSubCurrency] = useState('GBP');
   const [editingSubId, setEditingSubId] = useState(null);
   const [editSubBudget, setEditSubBudget] = useState('');
+  const [editSubCurrency, setEditSubCurrency] = useState('GBP');
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatIcon, setNewCatIcon] = useState('📂');
@@ -51,8 +53,8 @@ export default function BudgetPage() {
 
   const handleAddSub = async (cat) => {
     if (!newSubName.trim()) return;
-    await addSubItem(cat, { name: newSubName.trim(), budget: newSubBudget || 0 });
-    setNewSubName(''); setNewSubBudget(''); setAddingSubTo(null);
+    await addSubItem(cat, { name: newSubName.trim(), budget: newSubBudget || 0, currency: newSubCurrency });
+    setNewSubName(''); setNewSubBudget(''); setNewSubCurrency('GBP'); setAddingSubTo(null);
   };
 
   const handleAddCategory = async () => {
@@ -137,8 +139,11 @@ export default function BudgetPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                         <span style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{cat}</span>
                         {/* Currency badge */}
-                        <span style={{ fontSize: '10px', fontWeight: '700', color: budgetCurrency === 'NGN' ? 'var(--accent-naira)' : 'var(--accent-primary)', background: budgetCurrency === 'NGN' ? 'var(--accent-naira-dim)' : 'var(--accent-primary-dim)', borderRadius: '4px', padding: '1px 5px' }}>
-                          {budgetCurrency}
+                        <span style={{ fontSize: '10px', fontWeight: '700',
+                          color: budgetCurrency === 'NGN' ? 'var(--accent-naira)' : budgetCurrency === 'MIXED' ? 'var(--accent-amber)' : 'var(--accent-primary)',
+                          background: budgetCurrency === 'NGN' ? 'var(--accent-naira-dim)' : budgetCurrency === 'MIXED' ? 'var(--accent-amber-dim)' : 'var(--accent-primary-dim)',
+                          borderRadius: '4px', padding: '1px 5px' }}>
+                          {budgetCurrency === 'MIXED' ? '£+₦' : budgetCurrency}
                         </span>
                         {subItems.length > 0 && <span style={{ fontSize: '10px', color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: '4px', padding: '1px 5px' }}>{subItems.length} items</span>}
                         {status.level === 'over' && <AlertTriangle size={12} color="var(--accent-red)" />}
@@ -147,7 +152,7 @@ export default function BudgetPage() {
                       {!isEditingCat ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                           <span style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: '700', color: status.color }}>
-                            {fmt(spent, budgetCurrency)}{budgeted > 0 ? ` / ${fmt(budgeted, budgetCurrency)}` : ''}
+                            {budgetCurrency === 'MIXED' ? 'Mixed currencies' : `${fmt(spent, budgetCurrency)}${budgeted > 0 ? ' / ' + fmt(budgeted, budgetCurrency) : ''}`}
                           </span>
                           <button onClick={() => { setEditingCat(cat); setEditCatValue(budgeted || ''); setEditCatCurrency(budgetCurrency); }}
                             style={{ color: 'var(--text-muted)', display: 'flex', padding: '2px' }}><Pencil size={11} /></button>
@@ -176,7 +181,7 @@ export default function BudgetPage() {
                       )}
                     </div>
 
-                    {budgeted > 0 && (
+                    {budgeted > 0 && budgetCurrency !== 'MIXED' && (
                       <>
                         <div style={{ height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
                           <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(status.pct, 100)}%` }} transition={{ duration: 0.5 }}
@@ -206,30 +211,40 @@ export default function BudgetPage() {
                   <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} style={{ overflow: 'hidden' }}>
                     <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px' }}>
                       {subItems.map(si => {
-                        const siKey = `${cat}::${si.name}`;
+                        const siCurrency = si.currency || budgetCurrency;
+                        const siKey = cat + '::' + si.name + '::' + siCurrency;
                         const siSpent = spentBySubItem[siKey] || 0;
                         const siStatus = getBudgetStatus(siSpent, si.budget);
                         const isEditingSub = editingSubId === si.id;
+                        const siSymbol = siCurrency === 'NGN' ? '₦' : '£';
                         return (
                           <div key={si.id} style={{ marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <div style={{ width: 5, height: 5, borderRadius: '50%', background: meta?.color || '#7c6aff', flexShrink: 0 }} />
                               <span style={{ flex: 1, fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '500' }}>{si.name}</span>
+                              {/* Currency badge */}
+                              <span style={{ fontSize: '10px', fontWeight: '700', color: siCurrency === 'NGN' ? 'var(--accent-naira)' : 'var(--accent-primary)', background: siCurrency === 'NGN' ? 'var(--accent-naira-dim)' : 'var(--accent-primary-dim)', borderRadius: '3px', padding: '1px 4px', flexShrink: 0 }}>
+                                {siSymbol}
+                              </span>
                               {!isEditingSub ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                   <span style={{ fontSize: '11px', fontWeight: '700', fontFamily: 'var(--font-display)', color: siStatus.color }}>
-                                    {fmt(siSpent, budgetCurrency)}{si.budget ? ` / ${fmt(si.budget, budgetCurrency)}` : ''}
+                                    {fmt(siSpent, siCurrency)}{si.budget ? ` / ${fmt(si.budget, siCurrency)}` : ''}
                                   </span>
-                                  <button onClick={() => { setEditingSubId(si.id); setEditSubBudget(si.budget || ''); }} style={{ color: 'var(--text-muted)' }}><Pencil size={10} /></button>
+                                  <button onClick={() => { setEditingSubId(si.id); setEditSubBudget(si.budget || ''); setEditSubCurrency(siCurrency); }} style={{ color: 'var(--text-muted)' }}><Pencil size={10} /></button>
                                   <button onClick={() => deleteSubItem(cat, si.id)} style={{ color: 'var(--accent-red)', opacity: 0.6 }}><Trash2 size={10} /></button>
                                 </div>
                               ) : (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  {/* Currency toggle in sub-item edit */}
+                                  <button onClick={() => setEditSubCurrency(c => c === 'GBP' ? 'NGN' : 'GBP')} style={{ fontSize: '10px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', border: `1px solid ${editSubCurrency === 'NGN' ? 'var(--accent-naira)' : 'var(--accent-primary)'}`, background: editSubCurrency === 'NGN' ? 'var(--accent-naira-dim)' : 'var(--accent-primary-dim)', color: editSubCurrency === 'NGN' ? 'var(--accent-naira)' : 'var(--accent-primary)' }}>
+                                    {editSubCurrency === 'GBP' ? '£' : '₦'}
+                                  </button>
                                   <input autoFocus type="number" value={editSubBudget} onChange={e => setEditSubBudget(e.target.value)}
-                                    onKeyDown={e => { if (e.key === 'Enter') { updateSubItem(cat, si.id, { budget: Number(editSubBudget) }); setEditingSubId(null); } if (e.key === 'Escape') setEditingSubId(null); }}
-                                    style={{ width: '60px', background: 'var(--bg-elevated)', border: '1px solid var(--accent-primary)', borderRadius: '6px', padding: '2px 6px', color: 'var(--text-primary)', fontSize: '12px', fontFamily: 'var(--font-display)', fontWeight: '700', outline: 'none' }}
+                                    onKeyDown={e => { if (e.key === 'Enter') { updateSubItem(cat, si.id, { budget: Number(editSubBudget), currency: editSubCurrency }); setEditingSubId(null); } if (e.key === 'Escape') setEditingSubId(null); }}
+                                    style={{ width: '55px', background: 'var(--bg-elevated)', border: '1px solid var(--accent-primary)', borderRadius: '6px', padding: '2px 5px', color: 'var(--text-primary)', fontSize: '12px', fontFamily: 'var(--font-display)', fontWeight: '700', outline: 'none' }}
                                   />
-                                  <button onClick={() => { updateSubItem(cat, si.id, { budget: Number(editSubBudget) }); setEditingSubId(null); }} style={{ color: 'var(--accent-green)' }}><Check size={12} /></button>
+                                  <button onClick={() => { updateSubItem(cat, si.id, { budget: Number(editSubBudget), currency: editSubCurrency }); setEditingSubId(null); }} style={{ color: 'var(--accent-green)' }}><Check size={12} /></button>
                                   <button onClick={() => setEditingSubId(null)} style={{ color: 'var(--accent-red)' }}><X size={12} /></button>
                                 </div>
                               )}
@@ -256,20 +271,25 @@ export default function BudgetPage() {
                           )}
                           <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
                             <input placeholder="Item name" value={newSubName} onChange={e => setNewSubName(e.target.value)}
-                              style={{ flex: 2, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 10px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }} />
+                              style={{ flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 10px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }} />
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', alignItems: 'center' }}>
+                            {/* Currency toggle for new sub-item */}
+                            <button onClick={() => setNewSubCurrency(c => c === 'GBP' ? 'NGN' : 'GBP')} style={{ padding: '7px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', fontFamily: 'var(--font-display)', border: `1px solid ${newSubCurrency === 'NGN' ? 'var(--accent-naira)' : 'var(--accent-primary)'}`, background: newSubCurrency === 'NGN' ? 'var(--accent-naira-dim)' : 'var(--accent-primary-dim)', color: newSubCurrency === 'NGN' ? 'var(--accent-naira)' : 'var(--accent-primary)', flexShrink: 0 }}>
+                              {newSubCurrency === 'GBP' ? '£' : '₦'}
+                            </button>
                             <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0 8px', flex: 1 }}>
-                              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{budgetCurrency === 'NGN' ? '₦' : '£'}</span>
-                              <input type="number" placeholder="Budget" value={newSubBudget} onChange={e => setNewSubBudget(e.target.value)}
-                                style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-display)', fontWeight: '700', width: '55px' }} />
+                              <input type="number" placeholder="Budget amount" value={newSubBudget} onChange={e => setNewSubBudget(e.target.value)}
+                                style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: '14px', fontFamily: 'var(--font-display)', fontWeight: '700', padding: '8px 0' }} />
                             </div>
                           </div>
                           <div style={{ display: 'flex', gap: '6px' }}>
                             <button onClick={() => handleAddSub(cat)} style={{ flex: 1, padding: '8px', background: meta?.color || 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '700', fontFamily: 'var(--font-display)' }}>Add</button>
-                            <button onClick={() => { setAddingSubTo(null); setNewSubName(''); setNewSubBudget(''); }} style={{ padding: '8px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>Cancel</button>
+                            <button onClick={() => { setAddingSubTo(null); setNewSubName(''); setNewSubBudget(''); setNewSubCurrency('GBP'); }} style={{ padding: '8px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>Cancel</button>
                           </div>
                         </div>
                       ) : (
-                        <button onClick={() => setAddingSubTo(cat)} style={{
+                        <button onClick={() => { setAddingSubTo(cat); setNewSubCurrency(budgetCurrency === 'NGN' ? 'NGN' : 'GBP'); }} style={{
                           display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: '700',
                           color: meta?.color || 'var(--accent-primary)', background: `${meta?.color || 'var(--accent-primary)'}10`,
                           border: `1px dashed ${meta?.color || 'var(--accent-primary)'}50`,

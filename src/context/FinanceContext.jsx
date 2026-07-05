@@ -165,9 +165,14 @@ export function FinanceProvider({ children }) {
     .filter(t => t.type === 'expense' && t.account === 'NGN')
     .reduce((acc, t) => { acc[t.category] = (acc[t.category] || 0) + t.amount; return acc; }, {});
 
+  // spentBySubItem tracks per sub-item per currency: key = "Cat::SubItem::GBP" or "Cat::SubItem::NGN"
   const spentBySubItem = transactions
-    .filter(t => t.type === 'expense' && t.account === 'GBP' && t.subItem)
-    .reduce((acc, t) => { const k = `${t.category}::${t.subItem}`; acc[k] = (acc[k] || 0) + t.amount; return acc; }, {});
+    .filter(t => t.type === 'expense' && t.subItem)
+    .reduce((acc, t) => {
+      const k = t.category + '::' + t.subItem + '::' + (t.account || 'GBP');
+      acc[k] = (acc[k] || 0) + t.amount;
+      return acc;
+    }, {});
 
   const unbudgetedCategories = ALL_CATEGORIES.filter(
     cat => (spentByCategory[cat] || 0) > 0 && !budgets[cat]?.amount
@@ -304,12 +309,28 @@ export function FinanceProvider({ children }) {
     else await addDoc(collection(db, 'users', user.uid, 'budgets'), payload);
   };
 
+  // When sub-items have mixed currencies, we don't sum them into one parent total.
+  // Instead the parent amount is stored per-currency as separate sums.
+  const calcSubTotals = (subs) => {
+    const gbp = subs.filter(si => !si.currency || si.currency === 'GBP').reduce((s, si) => s + (si.budget || 0), 0);
+    const ngn = subs.filter(si => si.currency === 'NGN').reduce((s, si) => s + (si.budget || 0), 0);
+    return { gbp, ngn, mixed: gbp > 0 && ngn > 0 };
+  };
+
   const addSubItem = async (category, subItem) => {
     if (!user) return;
     const existing = budgets[category];
     const currentSubs = existing?.subItems || [];
-    const newSubs = [...currentSubs, { name: subItem.name, budget: Number(subItem.budget || 0), id: Date.now().toString() }];
-    await upsertBudget(category, newSubs.reduce((s, si) => s + si.budget, 0), newSubs, existing?.budgetCurrency || 'GBP');
+    const newSub = {
+      name: subItem.name,
+      budget: Number(subItem.budget || 0),
+      currency: subItem.currency || existing?.budgetCurrency || 'GBP',
+      id: Date.now().toString(),
+    };
+    const newSubs = [...currentSubs, newSub];
+    const totals = calcSubTotals(newSubs);
+    // Parent amount = GBP total (primary), NGN stored separately in subItems
+    await upsertBudget(category, totals.gbp, newSubs, totals.mixed ? 'MIXED' : (totals.ngn > 0 ? 'NGN' : 'GBP'));
     toast.success('Sub-item added');
   };
 
@@ -317,14 +338,16 @@ export function FinanceProvider({ children }) {
     if (!user) return;
     const existing = budgets[category];
     const newSubs = (existing?.subItems || []).map(si => si.id === subId ? { ...si, ...updates } : si);
-    await upsertBudget(category, newSubs.reduce((s, si) => s + si.budget, 0), newSubs, existing?.budgetCurrency || 'GBP');
+    const totals = calcSubTotals(newSubs);
+    await upsertBudget(category, totals.gbp, newSubs, totals.mixed ? 'MIXED' : (totals.ngn > 0 ? 'NGN' : 'GBP'));
   };
 
   const deleteSubItem = async (category, subId) => {
     if (!user) return;
     const existing = budgets[category];
     const newSubs = (existing?.subItems || []).filter(si => si.id !== subId);
-    await upsertBudget(category, newSubs.reduce((s, si) => s + si.budget, 0), newSubs, existing?.budgetCurrency || 'GBP');
+    const totals = calcSubTotals(newSubs);
+    await upsertBudget(category, totals.gbp, newSubs, totals.mixed ? 'MIXED' : (totals.ngn > 0 ? 'NGN' : 'GBP'));
     toast.success('Sub-item removed');
   };
 
