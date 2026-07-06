@@ -135,7 +135,7 @@ export default function SavingsPage() {
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowContribute(null)}
-              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, backdropFilter: 'blur(4px)' }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 300, backdropFilter: 'blur(4px)' }}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -310,24 +310,19 @@ function CreateGoalSheet({ open, onClose }) {
       {open && (
         <>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, backdropFilter: 'blur(4px)' }} />
+            className="sheet-backdrop" />
           <motion.div
+            className="sheet-panel"
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-            style={{
-              position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-              width: '100%', maxWidth: 480,
-              background: 'var(--bg-card)', borderRadius: '24px 24px 0 0',
-              border: '1px solid var(--border)', borderBottom: 'none',
-              zIndex: 201, padding: '20px',
-              paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
-              maxHeight: '90dvh', overflowY: 'auto',
-            }}
+            transition={{ type: 'spring', stiffness: 340, damping: 38 }}
           >
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '700' }}>New Savings Goal</h3>
-              <button onClick={onClose} style={{ color: 'var(--text-muted)' }}><X size={20} /></button>
+            <div style={{ padding: '12px 16px 0', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', cursor: 'grab' }} />
+            </div>
+            <div style={{ padding: '14px 16px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>New Savings Goal</h3>
+              <button onClick={onClose} style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '2px' }}>close</button>
             </div>
 
             {/* Icon picker */}

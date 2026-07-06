@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFinance, getBudgetStatus } from '../context/FinanceContext';
 import { fmtGBP, fmtNGN } from '../context/CurrencyContext';
-import { Pencil, Check, X, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Pencil, Check, X, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, Zap } from 'lucide-react';
+import AddTransactionSheet from '../components/transactions/AddTransactionSheet';
 
 const ICON_OPTIONS = ['🏠','🚗','👨‍👩‍👧','📚','🤝','💰','🍔','✈️','🏥','👗','💄','🎮','⚽','🎵','🛒','🐕','💊','🔧','📱','🎁'];
 const COLOR_OPTIONS = ['#7c6aff','#f87171','#fbbf24','#4ade80','#fb923c','#38bdf8','#e879f9','#34d399','#f97316','#06b6d4'];
@@ -30,6 +31,7 @@ export default function BudgetPage() {
   const [editSubBudget, setEditSubBudget] = useState('');
   const [editSubCurrency, setEditSubCurrency] = useState('GBP');
   const [showAddCat, setShowAddCat] = useState(false);
+  const [quickPay, setQuickPay] = useState(null); // prefill object for AddTransactionSheet
   const [newCatName, setNewCatName] = useState('');
   const [newCatIcon, setNewCatIcon] = useState('📂');
   const [newCatColor, setNewCatColor] = useState('#7c6aff');
@@ -317,6 +319,13 @@ export default function BudgetPage() {
           <Plus size={16} /> Add Custom Category
         </button>
       </div>
+
+      {/* Quick Pay sheet */}
+      <AddTransactionSheet
+        open={!!quickPay}
+        onClose={() => setQuickPay(null)}
+        prefill={quickPay}
+      />
 
       {/* Add category sheet */}
       <AnimatePresence>

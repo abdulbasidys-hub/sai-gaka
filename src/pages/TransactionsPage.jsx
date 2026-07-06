@@ -213,16 +213,14 @@ function TxRow({ tx, onDelete, last, budgetCategories }) {
             {tx.type === 'transfer_out' ? '-' : tx.type === 'transfer_in' ? '+' : isExpense ? '-' : '+'}
             {isNGN ? fmtNGN(tx.amount) : fmtGBP(tx.amount)}
           </span>
-          {!isTransfer && (
-            !showDelete ? (
+          {!showDelete ? (
               <button onClick={() => setShowDelete(true)} style={{ color: 'var(--text-muted)', opacity: 0.5, display: 'flex' }}><Trash2 size={14} /></button>
             ) : (
               <div style={{ display: 'flex', gap: '4px' }}>
                 <button onClick={onDelete} style={{ background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: '6px', padding: '3px 8px', fontSize: '11px', fontWeight: '700' }}>Del</button>
                 <button onClick={() => setShowDelete(false)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '6px', padding: '3px 6px', fontSize: '11px', color: 'var(--text-secondary)' }}>✕</button>
               </div>
-            )
-          )}
+            )}
         </div>
       </div>
     </div>

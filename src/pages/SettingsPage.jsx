@@ -5,15 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 import { useCurrency, fmtGBP, fmtNGN } from '../context/CurrencyContext';
 import { format, addMonths, subMonths, parseISO } from 'date-fns';
-import { LogOut, ChevronLeft, ChevronRight, RefreshCw, Check, Banknote, Calendar, Shield } from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight, Check, Banknote, Calendar, Shield } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
   const { currentMonth, setCurrentMonth } = useFinance();
-  const { exchangeRate, rateUpdatedAt, salaryConfig, updateExchangeRate, updateSalaryConfig, fetchLiveRate } = useCurrency();
+  const { exchangeRate, rateUpdatedAt, salaryConfig, updateExchangeRate, updateSalaryConfig } = useCurrency();
 
   const [rateInput, setRateInput] = useState(exchangeRate || '');
-  const [fetchingRate, setFetchingRate] = useState(false);
 
   // Salary form state
   const [salary, setSalary] = useState({
@@ -43,13 +42,6 @@ export default function SettingsPage() {
   const handleSaveRate = async () => {
     if (!rateInput || isNaN(rateInput)) return;
     await updateExchangeRate(rateInput);
-  };
-
-  const handleFetchRate = async () => {
-    setFetchingRate(true);
-    const rate = await fetchLiveRate();
-    if (rate) setRateInput(rate);
-    setFetchingRate(false);
   };
 
   const handleSaveSalary = async () => {
@@ -198,7 +190,7 @@ export default function SettingsPage() {
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px', marginBottom: '20px' }}>
 
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
-          Used to show approximate GBP value of Naira transactions. Update whenever the rate changes.
+          Set the rate <strong>you actually receive</strong> after app charges (Wise, Sendwave, etc). This is used for all conversions across the app.
         </p>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 14px', marginBottom: '10px' }}>
@@ -227,19 +219,9 @@ export default function SettingsPage() {
           }}>
             <Check size={14} /> Save Rate
           </motion.button>
-          <motion.button onClick={handleFetchRate} disabled={fetchingRate} whileTap={{ scale: 0.97 }} style={{
-            flex: 1, padding: '11px',
-            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '600', fontFamily: 'var(--font-display)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-          }}>
-            <RefreshCw size={13} className={fetchingRate ? 'spin' : ''} />
-            {fetchingRate ? 'Fetching…' : 'Get Live Rate'}
-          </motion.button>
         </div>
         <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
-          Live rate auto-fetch may not always succeed — manual entry as backup.
+          Enter the rate you actually get (after app charges). Update it whenever the rate changes.
         </p>
       </motion.div>
 
