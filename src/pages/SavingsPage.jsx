@@ -374,6 +374,8 @@ function CreateGoalSheet({ open, onClose }) {
             }}>
               <Check size={16} /> Create Goal
             </motion.button>
+            <div style={{ height: 'max(20px, env(safe-area-inset-bottom))' }} />
+            </div>
           </motion.div>
         </>
       )}
