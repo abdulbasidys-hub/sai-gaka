@@ -1,5 +1,5 @@
 // src/pages/BudgetPage.jsx
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFinance, getBudgetStatus } from '../context/FinanceContext';
 import { fmtGBP, fmtNGN } from '../context/CurrencyContext';
@@ -377,6 +377,7 @@ export default function BudgetPage() {
                 }}>
                   <Check size={16} /> {newCatIcon} Create "{newCatName || 'Category'}"
                 </motion.button>
+              <div style={{ height: 'max(20px, env(safe-area-inset-bottom))' }} />
               </div>
             </motion.div>
           </>

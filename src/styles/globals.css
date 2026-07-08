@@ -80,11 +80,7 @@
 }
 
 /* ─── RESET ─── */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
   scroll-behavior: smooth;
@@ -104,32 +100,19 @@ body {
   transition: background 0.25s ease, color 0.25s ease;
 }
 
-/* Theme transitions — only on color props, not transforms */
 * { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease; }
-[class*="motion"], [style*="transform"] { transition: none !important; }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
 ::selection { background: var(--accent-primary-dim); color: var(--text-primary); }
-
-:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
+:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; border-radius: var(--radius-sm); }
 
 button { cursor: pointer; font-family: var(--font-body); border: none; background: none; }
 input, select, textarea { font-family: var(--font-body); }
 a { text-decoration: none; color: inherit; }
 
-/* ─── LAYOUT ─── */
-#root {
-  width: 100%;
-  min-height: 100dvh;
-}
+#root { width: 100%; min-height: 100dvh; }
 
 .page-container {
   width: 100%;
@@ -140,7 +123,7 @@ a { text-decoration: none; color: inherit; }
   background: var(--bg-base);
 }
 
-/* ─── SHEET OVERLAY ─── */
+/* ── Sheet overlay ── */
 .sheet-backdrop {
   position: fixed;
   inset: 0;
@@ -150,6 +133,13 @@ a { text-decoration: none; color: inherit; }
   -webkit-backdrop-filter: blur(6px);
 }
 
+/*
+  Sheet panel — full-width bottom sheet.
+  Key fix: overscroll-behavior: contain so inner scroll
+  doesn't bubble up and trigger the drag-to-dismiss.
+  touch-action: pan-y on the content area (not the handle)
+  so only the drag handle fires the drag gesture.
+*/
 .sheet-panel {
   position: fixed;
   bottom: 0;
@@ -165,7 +155,28 @@ a { text-decoration: none; color: inherit; }
   border-right: 1px solid var(--border);
   z-index: 201;
   max-height: 94dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-handle-area {
+  flex-shrink: 0;
+  padding: 12px 16px 4px;
+  display: flex;
+  justify-content: center;
+  /* Only this area triggers drag */
+  touch-action: none;
+  cursor: grab;
+}
+
+.sheet-handle-area:active { cursor: grabbing; }
+
+.sheet-scroll-area {
+  flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  /* Allow normal scrolling here, NOT drag dismiss */
+  touch-action: pan-y;
+  padding: 8px 16px 0;
 }
