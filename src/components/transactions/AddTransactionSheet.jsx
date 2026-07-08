@@ -18,7 +18,7 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
   const [account, setAccount] = useState('GBP');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
-  const [customCategory, setCustomCategory] = useState(false); // true = "Other", no category required
+  const [customCategory, setCustomCategory] = useState(false);
   const [incomeSource, setIncomeSource] = useState('');
   const [subItem, setSubItem] = useState('');
   const [description, setDescription] = useState('');
@@ -31,8 +31,8 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
 
   const sheetRef = useRef(null);
   const scrollAreaRef = useRef(null);
-  const dragStartY = useRef(null);
-  const isDraggingFromHandle = useRef(false);
+  // Only for the drag handle
+  const handleDragStart = useRef(null);
 
   useEffect(() => {
     if (open) {
@@ -52,7 +52,10 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
         setSubItem('');
       }
       setCustomCategory(false);
-      setIncomeSource(''); setNotes(''); setRecurring(false); setShowNotes(false);
+      setIncomeSource('');
+      setNotes('');
+      setRecurring(false);
+      setShowNotes(false);
       setDate(new Date().toISOString().split('T')[0]);
     }
   }, [open, prefill]);
@@ -69,57 +72,25 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
     if (type === 'income') { setCategory(''); setIncomeSource(''); setCustomCategory(false); }
   }, [type]);
 
-  // ── Drag to dismiss — handle area only ─────────────────────────────────
-  const applyDrag = (delta) => {
-    if (sheetRef.current && delta > 0) {
-      sheetRef.current.style.transform = `translateY(${delta}px)`;
+  // ── Drag handle ONLY ────────────────────────────────────────────────────
+  // Touch events ONLY on the handle bar — never on the content area
+  // This completely avoids interfering with button taps on mobile
+  const onHandleTouchStart = (e) => {
+    handleDragStart.current = e.touches[0].clientY;
+  };
+  const onHandleTouchMove = (e) => {
+    if (handleDragStart.current === null) return;
+    const delta = e.touches[0].clientY - handleDragStart.current;
+    if (delta > 0 && sheetRef.current) {
+      sheetRef.current.style.transform = `translateY(${Math.max(0, delta)}px)`;
     }
   };
-  const resetDrag = () => {
+  const onHandleTouchEnd = (e) => {
+    if (handleDragStart.current === null) return;
+    const delta = e.changedTouches[0].clientY - handleDragStart.current;
     if (sheetRef.current) sheetRef.current.style.transform = '';
-  };
-
-  const handleHandleTouchStart = (e) => {
-    dragStartY.current = e.touches[0].clientY;
-    isDraggingFromHandle.current = true;
-  };
-  const handleHandleTouchMove = (e) => {
-    if (!isDraggingFromHandle.current) return;
-    applyDrag(e.touches[0].clientY - dragStartY.current);
-  };
-  const handleHandleTouchEnd = (e) => {
-    if (!isDraggingFromHandle.current) return;
-    const delta = e.changedTouches[0].clientY - dragStartY.current;
-    resetDrag();
     if (delta > 80) onClose();
-    dragStartY.current = null;
-    isDraggingFromHandle.current = false;
-  };
-
-  // Scroll area: dismiss only when scrolled to very top and swiping down
-  const scrollDragStartY = useRef(null);
-  const handleScrollTouchStart = (e) => {
-    const el = scrollAreaRef.current;
-    if (el && el.scrollTop <= 0) {
-      scrollDragStartY.current = e.touches[0].clientY;
-    } else {
-      scrollDragStartY.current = null;
-    }
-  };
-  const handleScrollTouchMove = (e) => {
-    if (scrollDragStartY.current === null) return;
-    const el = scrollAreaRef.current;
-    if (!el || el.scrollTop > 2) { scrollDragStartY.current = null; return; }
-    const delta = e.touches[0].clientY - scrollDragStartY.current;
-    if (delta > 10) applyDrag(delta);
-    // NOTE: no preventDefault() here — that was blocking button taps
-  };
-  const handleScrollTouchEnd = (e) => {
-    if (scrollDragStartY.current === null) return;
-    const delta = e.changedTouches[0].clientY - scrollDragStartY.current;
-    resetDrag();
-    if (delta > 80) onClose();
-    scrollDragStartY.current = null;
+    handleDragStart.current = null;
   };
 
   const catMeta = BUDGET_CATEGORIES[category];
@@ -146,10 +117,12 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
         category: type === 'income'
           ? (selectedSource?.label || incomeSource)
           : (customCategory ? 'Other' : category),
-        incomeSource: type === 'income' ? incomeSource : undefined,
-        subItem,
+        incomeSource: type === 'income' ? incomeSource : null,
+        subItem: subItem || null,
         description: description || subItem || (type === 'income' ? selectedSource?.label : (customCategory ? 'Other' : category)) || '',
-        notes, date: new Date(date), recurring,
+        notes: notes || null,
+        date: new Date(date),
+        recurring,
         isBorrowed: incomeSource === 'borrowed',
       });
       onClose();
@@ -167,30 +140,40 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={onClose}
             />
-            {/* No inline transition style — let Framer Motion handle it cleanly */}
             <motion.div
               ref={sheetRef}
               className="sheet-panel"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 340, damping: 38, mass: 0.8 }}
             >
-              {/* Handle — only touch events here trigger dismiss */}
+              {/* ── Drag handle — ONLY touch area for dismiss ── */}
               <div
-                className="sheet-handle-area"
-                onTouchStart={handleHandleTouchStart}
-                onTouchMove={handleHandleTouchMove}
-                onTouchEnd={handleHandleTouchEnd}
+                style={{
+                  flexShrink: 0, padding: '12px 16px 4px',
+                  display: 'flex', justifyContent: 'center',
+                  cursor: 'grab', userSelect: 'none',
+                  touchAction: 'none', // disable browser scroll here so drag works
+                }}
+                onTouchStart={onHandleTouchStart}
+                onTouchMove={onHandleTouchMove}
+                onTouchEnd={onHandleTouchEnd}
               >
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)' }} />
               </div>
 
-              {/* Scroll content */}
+              {/* ── Content — NO touch handlers here, buttons work normally ── */}
               <div
-                className="sheet-scroll-area"
                 ref={scrollAreaRef}
-                onTouchStart={handleScrollTouchStart}
-                onTouchMove={handleScrollTouchMove}
-                onTouchEnd={handleScrollTouchEnd}
+                style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  overscrollBehavior: 'contain',
+                  WebkitOverflowScrolling: 'touch',
+                  padding: '4px 16px 0',
+                  // touchAction: pan-y here allows normal scrolling without intercepting taps
+                  touchAction: 'pan-y',
+                }}
               >
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -199,10 +182,10 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                   </h3>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={() => { onClose(); setTimeout(() => setShowTransfer(true), 100); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: 'var(--accent-primary)', background: 'var(--accent-primary-dim)', border: '1px solid var(--accent-primary)', borderRadius: '8px', padding: '5px 9px' }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: 'var(--accent-primary)', background: 'var(--accent-primary-dim)', border: '1px solid var(--accent-primary)', borderRadius: '8px', padding: '5px 9px', touchAction: 'manipulation' }}>
                       <ArrowLeftRight size={11} /> Transfer
                     </button>
-                    <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
+                    <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', touchAction: 'manipulation' }}>
                       <ChevronDown size={20} />
                     </button>
                   </div>
@@ -213,7 +196,8 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                   <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: '10px', padding: '3px', marginBottom: '14px' }}>
                     {['expense', 'income'].map(t => (
                       <button key={t} onClick={() => setType(t)} style={{
-                        flex: 1, padding: '9px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', fontFamily: 'var(--font-display)',
+                        flex: 1, padding: '9px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
+                        fontFamily: 'var(--font-display)', touchAction: 'manipulation',
                         background: type === t ? (t === 'expense' ? 'var(--accent-red)' : 'var(--accent-green)') : 'transparent',
                         color: type === t ? '#fff' : 'var(--text-secondary)',
                       }}>
@@ -228,7 +212,7 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
                   {['GBP', 'NGN'].map(acct => (
                     <button key={acct} onClick={() => setAccount(acct)} style={{
-                      flex: 1, padding: '9px 8px', borderRadius: 'var(--radius-md)',
+                      flex: 1, padding: '9px 8px', borderRadius: 'var(--radius-md)', touchAction: 'manipulation',
                       border: `1px solid ${account === acct ? (acct === 'NGN' ? 'var(--accent-naira)' : 'var(--accent-primary)') : 'var(--border)'}`,
                       background: account === acct ? (acct === 'NGN' ? 'var(--accent-naira-dim)' : 'var(--accent-primary-dim)') : 'var(--bg-elevated)',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
@@ -243,11 +227,7 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                 </div>
 
                 {/* Amount */}
-                <div style={{
-                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-md)', padding: '10px 14px',
-                  display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px',
-                }}>
+                <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: '800', color: 'var(--text-muted)' }}>{symbol}</span>
                   <input type="number" inputMode="decimal" placeholder="0.00"
                     value={amount} onChange={e => setAmount(e.target.value)}
@@ -260,7 +240,7 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                   )}
                 </div>
 
-                {/* EXPENSE: categories */}
+                {/* EXPENSE */}
                 {type === 'expense' && (
                   <>
                     <FL>Category</FL>
@@ -270,7 +250,7 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                         const active = !customCategory && category === cat;
                         return (
                           <button key={cat} onClick={() => { setCategory(cat); setCustomCategory(false); }} style={{
-                            padding: '6px 10px', borderRadius: '8px', fontSize: '12px',
+                            padding: '6px 10px', borderRadius: '8px', fontSize: '12px', touchAction: 'manipulation',
                             fontWeight: active ? '700' : '400',
                             border: `1px solid ${active ? meta.color : 'var(--border)'}`,
                             background: active ? `${meta.color}18` : 'var(--bg-elevated)',
@@ -280,26 +260,23 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                           </button>
                         );
                       })}
-                      {/* Other — clears category requirement */}
                       <button onClick={() => { setCustomCategory(true); setCategory(''); setSubItem(''); }} style={{
-                        padding: '6px 10px', borderRadius: '8px', fontSize: '12px',
+                        padding: '6px 10px', borderRadius: '8px', fontSize: '12px', touchAction: 'manipulation',
                         fontWeight: customCategory ? '700' : '400',
                         border: `1px solid ${customCategory ? 'var(--text-secondary)' : 'var(--border)'}`,
-                        background: customCategory ? 'var(--bg-elevated)' : 'var(--bg-elevated)',
+                        background: 'var(--bg-elevated)',
                         color: customCategory ? 'var(--text-primary)' : 'var(--text-muted)',
                       }}>
                         ➕ Other
                       </button>
                     </div>
-
-                    {/* Sub-items — only shown when a real category is selected */}
                     {!customCategory && subItemOptions.length > 0 && (
                       <>
                         <FL>Specific item (optional)</FL>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
                           {subItemOptions.map(item => (
                             <button key={item} onClick={() => setSubItem(subItem === item ? '' : item)} style={{
-                              padding: '5px 10px', borderRadius: '6px', fontSize: '12px',
+                              padding: '5px 10px', borderRadius: '6px', fontSize: '12px', touchAction: 'manipulation',
                               border: `1px solid ${subItem === item ? catMeta?.color : 'var(--border)'}`,
                               background: subItem === item ? `${catMeta?.color}15` : 'var(--bg-elevated)',
                               color: subItem === item ? catMeta?.color : 'var(--text-secondary)',
@@ -313,7 +290,7 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                   </>
                 )}
 
-                {/* INCOME: source */}
+                {/* INCOME */}
                 {type === 'income' && (
                   <>
                     <FL>Income Source</FL>
@@ -322,7 +299,7 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                         const active = incomeSource === src.id;
                         return (
                           <button key={src.id} onClick={() => setIncomeSource(src.id)} style={{
-                            padding: '10px 6px', borderRadius: 'var(--radius-md)',
+                            padding: '10px 6px', borderRadius: 'var(--radius-md)', touchAction: 'manipulation',
                             border: `1px solid ${active ? src.color : 'var(--border)'}`,
                             background: active ? `${src.color}18` : 'var(--bg-elevated)',
                             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
@@ -341,22 +318,20 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                   </>
                 )}
 
-                {/* Description */}
                 <input type="text"
-                  placeholder={type === 'income' ? 'Who from / what for' : customCategory ? 'What did you spend on? (required)' : 'Description (optional)'}
+                  placeholder={type === 'income' ? 'Who from / what for' : customCategory ? 'What did you spend on?' : 'Description (optional)'}
                   value={description} onChange={e => setDescription(e.target.value)}
                   style={{ width: '100%', background: 'var(--bg-elevated)', border: `1px solid ${customCategory && !description ? 'var(--accent-amber)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', padding: '11px 14px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', marginBottom: '10px' }}
                 />
 
-                {/* Date */}
                 <input type="date" value={date} onChange={e => setDate(e.target.value)}
                   style={{ width: '100%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '11px 14px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', colorScheme: 'light dark', marginBottom: '10px' }}
                 />
 
-                {/* Recurring + Note */}
                 <div style={{ display: 'flex', gap: '8px', marginBottom: showNotes ? '10px' : '14px' }}>
                   <button onClick={() => setRecurring(r => !r)} style={{
-                    flex: 1, padding: '9px', borderRadius: 'var(--radius-md)', fontSize: '12px', fontWeight: '600', fontFamily: 'var(--font-display)',
+                    flex: 1, padding: '9px', borderRadius: 'var(--radius-md)', fontSize: '12px', fontWeight: '600',
+                    fontFamily: 'var(--font-display)', touchAction: 'manipulation',
                     border: `1px solid ${recurring ? 'var(--accent-primary)' : 'var(--border)'}`,
                     background: recurring ? 'var(--accent-primary-dim)' : 'var(--bg-elevated)',
                     color: recurring ? 'var(--accent-primary)' : 'var(--text-secondary)',
@@ -365,7 +340,8 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                     <RefreshCw size={12} /> Recurring
                   </button>
                   <button onClick={() => setShowNotes(s => !s)} style={{
-                    flex: 1, padding: '9px', borderRadius: 'var(--radius-md)', fontSize: '12px', fontWeight: '600', fontFamily: 'var(--font-display)',
+                    flex: 1, padding: '9px', borderRadius: 'var(--radius-md)', fontSize: '12px', fontWeight: '600',
+                    fontFamily: 'var(--font-display)', touchAction: 'manipulation',
                     border: `1px solid ${showNotes ? 'var(--accent-amber)' : 'var(--border)'}`,
                     background: showNotes ? 'var(--accent-amber-dim)' : 'var(--bg-elevated)',
                     color: showNotes ? 'var(--accent-amber)' : 'var(--text-secondary)',
@@ -381,7 +357,7 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                   />
                 )}
 
-                {/* Save button — plain HTML button, no motion wrapper that could eat taps */}
+                {/* Save — plain button, touchAction manipulation, no motion wrapper */}
                 <button
                   onClick={handleSubmit}
                   disabled={!isReady}
@@ -390,14 +366,16 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                     background: !isReady
                       ? 'var(--bg-elevated)'
                       : type === 'expense'
-                        ? account === 'NGN' ? 'linear-gradient(135deg, var(--accent-naira), #16a34a)' : 'linear-gradient(135deg, var(--accent-red), #e53e3e)'
-                        : 'linear-gradient(135deg, var(--accent-green), #22c55e)',
+                        ? account === 'NGN' ? 'linear-gradient(135deg, var(--accent-naira), #16a34a)' : 'linear-gradient(135deg, #e53e3e, var(--accent-red))'
+                        : 'linear-gradient(135deg, #22c55e, var(--accent-green))',
                     color: !isReady ? 'var(--text-muted)' : '#fff',
                     fontSize: '15px', fontWeight: '800', fontFamily: 'var(--font-display)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                    cursor: isReady ? 'pointer' : 'not-allowed', border: 'none',
-                    WebkitAppearance: 'none',
-                    touchAction: 'manipulation', // prevents double-tap zoom delay
+                    cursor: isReady ? 'pointer' : 'not-allowed',
+                    border: 'none', WebkitAppearance: 'none',
+                    touchAction: 'manipulation',
+                    // Ensure nothing above intercepts this tap
+                    position: 'relative', zIndex: 1,
                   }}
                 >
                   <Check size={16} />

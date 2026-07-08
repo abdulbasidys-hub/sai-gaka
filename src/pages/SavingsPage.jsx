@@ -15,51 +15,27 @@ function useHandleDrag(onClose) {
   const sheetRef = useRef(null);
   const scrollAreaRef = useRef(null);
   const dragStartY = useRef(null);
-  const scrollDragY = useRef(null);
 
-  const applyDrag = (delta) => {
-    if (sheetRef.current && delta > 0) sheetRef.current.style.transform = `translateY(${delta}px)`;
-  };
-  const resetDrag = () => {
-    if (sheetRef.current) sheetRef.current.style.transform = '';
-  };
-
-  // Handle area
   const onTouchStart = (e) => { dragStartY.current = e.touches[0].clientY; };
   const onTouchMove = (e) => {
     if (dragStartY.current === null) return;
-    applyDrag(e.touches[0].clientY - dragStartY.current);
+    const d = e.touches[0].clientY - dragStartY.current;
+    if (d > 0 && sheetRef.current) sheetRef.current.style.transform = `translateY(${d}px)`;
   };
   const onTouchEnd = (e) => {
-    const d = e.changedTouches[0].clientY - (dragStartY.current || 0);
-    resetDrag();
+    if (dragStartY.current === null) return;
+    const d = e.changedTouches[0].clientY - dragStartY.current;
+    if (sheetRef.current) sheetRef.current.style.transform = '';
     if (d > 80) onClose();
     dragStartY.current = null;
   };
 
-  // Scroll area — dismiss when at top
-  const onScrollTouchStart = (e) => {
-    const el = scrollAreaRef.current;
-    scrollDragY.current = (el && el.scrollTop <= 0) ? e.touches[0].clientY : null;
-  };
-  const onScrollTouchMove = (e) => {
-    if (scrollDragY.current === null) return;
-    const el = scrollAreaRef.current;
-    if (!el || el.scrollTop > 2) { scrollDragY.current = null; return; }
-    applyDrag(e.touches[0].clientY - scrollDragY.current);
-  };
-  const onScrollTouchEnd = (e) => {
-    if (scrollDragY.current === null) return;
-    const d = e.changedTouches[0].clientY - scrollDragY.current;
-    resetDrag();
-    if (d > 80) onClose();
-    scrollDragY.current = null;
-  };
-
   return {
-    sheetRef, scrollAreaRef,
+    sheetRef,
+    scrollAreaRef,
     handleProps: { onTouchStart, onTouchMove, onTouchEnd },
-    scrollProps: { onTouchStart: onScrollTouchStart, onTouchMove: onScrollTouchMove, onTouchEnd: onScrollTouchEnd },
+    // scrollProps intentionally empty — no touch handlers on content
+    scrollProps: {},
   };
 }
 
@@ -178,7 +154,7 @@ export default function SavingsPage() {
                   <div className="sheet-handle-area" {...handleProps}>
                     <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)' }} />
                   </div>
-                  <div className="sheet-scroll-area" ref={scrollAreaRef} {...scrollProps}>
+                  <div className="sheet-scroll-area" ref={scrollAreaRef} style={{ touchAction: 'pan-y' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>Add to Goal</h3>
                       <button onClick={() => { setShowContribute(null); setContributeAmount(''); }} style={{ color: 'var(--text-muted)', display: 'flex' }}><ChevronDown size={20} /></button>
@@ -239,7 +215,7 @@ function CreateGoalSheet({ open, onClose }) {
             <div className="sheet-handle-area" {...handleProps}>
               <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)' }} />
             </div>
-            <div className="sheet-scroll-area" ref={scrollAreaRef} {...scrollProps}>
+            <div className="sheet-scroll-area" ref={scrollAreaRef} style={{ touchAction: 'pan-y' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>New Savings Goal</h3>
                 <button onClick={onClose} style={{ color: 'var(--text-muted)', display: 'flex' }}><ChevronDown size={20} /></button>

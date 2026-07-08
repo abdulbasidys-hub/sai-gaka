@@ -106,6 +106,7 @@ a { text-decoration: none; color: inherit; }
   min-height: 100dvh;
   position: relative;
   background: var(--bg-base);
+  /* Do NOT set overflow hidden here — it clips the topbar dropdown */
 }
 
 /* ── Sheet backdrop ── */
@@ -143,7 +144,9 @@ a { text-decoration: none; color: inherit; }
   max-height: 94dvh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* overflow hidden only on x to stop sideways scroll, not y */
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 /* Drag handle — touch events here always trigger dismiss gesture */

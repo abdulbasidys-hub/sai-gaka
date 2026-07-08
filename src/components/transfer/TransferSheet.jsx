@@ -94,7 +94,7 @@ export default function TransferSheet({ open, onClose }) {
               <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)' }} />
             </div>
 
-            <div className="sheet-scroll-area" ref={scrollAreaRef} onTouchStart={handleScrollTouchStart} onTouchMove={handleScrollTouchMove} onTouchEnd={handleScrollTouchEnd}>
+            <div className="sheet-scroll-area" style={{ touchAction: 'pan-y' }} ref={scrollAreaRef}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <div>
                   <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>Convert & Transfer</h3>
