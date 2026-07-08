@@ -13,20 +13,54 @@ const GOAL_COLORS = ['#7c6aff','#4ade80','#fbbf24','#fb923c','#f87171','#38bdf8'
 
 function useHandleDrag(onClose) {
   const sheetRef = useRef(null);
+  const scrollAreaRef = useRef(null);
   const dragStartY = useRef(null);
+  const scrollDragY = useRef(null);
+
+  const applyDrag = (delta) => {
+    if (sheetRef.current && delta > 0) sheetRef.current.style.transform = `translateY(${delta}px)`;
+  };
+  const resetDrag = () => {
+    if (sheetRef.current) sheetRef.current.style.transform = '';
+  };
+
+  // Handle area
   const onTouchStart = (e) => { dragStartY.current = e.touches[0].clientY; };
   const onTouchMove = (e) => {
     if (dragStartY.current === null) return;
-    const d = e.touches[0].clientY - dragStartY.current;
-    if (d > 0 && sheetRef.current) { sheetRef.current.style.transform = `translateY(${d}px)`; sheetRef.current.style.transition = 'none'; }
+    applyDrag(e.touches[0].clientY - dragStartY.current);
   };
   const onTouchEnd = (e) => {
     const d = e.changedTouches[0].clientY - (dragStartY.current || 0);
-    if (sheetRef.current) { sheetRef.current.style.transform = ''; sheetRef.current.style.transition = ''; }
-    if (d > 100) onClose();
+    resetDrag();
+    if (d > 80) onClose();
     dragStartY.current = null;
   };
-  return { sheetRef, handleProps: { onTouchStart, onTouchMove, onTouchEnd } };
+
+  // Scroll area — dismiss when at top
+  const onScrollTouchStart = (e) => {
+    const el = scrollAreaRef.current;
+    scrollDragY.current = (el && el.scrollTop <= 0) ? e.touches[0].clientY : null;
+  };
+  const onScrollTouchMove = (e) => {
+    if (scrollDragY.current === null) return;
+    const el = scrollAreaRef.current;
+    if (!el || el.scrollTop > 2) { scrollDragY.current = null; return; }
+    applyDrag(e.touches[0].clientY - scrollDragY.current);
+  };
+  const onScrollTouchEnd = (e) => {
+    if (scrollDragY.current === null) return;
+    const d = e.changedTouches[0].clientY - scrollDragY.current;
+    resetDrag();
+    if (d > 80) onClose();
+    scrollDragY.current = null;
+  };
+
+  return {
+    sheetRef, scrollAreaRef,
+    handleProps: { onTouchStart, onTouchMove, onTouchEnd },
+    scrollProps: { onTouchStart: onScrollTouchStart, onTouchMove: onScrollTouchMove, onTouchEnd: onScrollTouchEnd },
+  };
 }
 
 export default function SavingsPage() {
@@ -133,7 +167,7 @@ export default function SavingsPage() {
       <AnimatePresence>
         {showContribute && (() => {
           const ContributeSheet = () => {
-            const { sheetRef, handleProps } = useHandleDrag(() => { setShowContribute(null); setContributeAmount(''); });
+            const { sheetRef, scrollAreaRef, handleProps, scrollProps } = useHandleDrag(() => { setShowContribute(null); setContributeAmount(''); });
             return (
               <>
                 <motion.div className="sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -144,7 +178,7 @@ export default function SavingsPage() {
                   <div className="sheet-handle-area" {...handleProps}>
                     <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)' }} />
                   </div>
-                  <div className="sheet-scroll-area">
+                  <div className="sheet-scroll-area" ref={scrollAreaRef} {...scrollProps}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>Add to Goal</h3>
                       <button onClick={() => { setShowContribute(null); setContributeAmount(''); }} style={{ color: 'var(--text-muted)', display: 'flex' }}><ChevronDown size={20} /></button>
@@ -182,7 +216,7 @@ function CreateGoalSheet({ open, onClose }) {
   const [icon, setIcon] = useState('💰');
   const [color, setColor] = useState('#4ade80');
   const [loading, setLoading] = useState(false);
-  const { sheetRef, handleProps } = useHandleDrag(onClose);
+  const { sheetRef, scrollAreaRef, handleProps, scrollProps } = useHandleDrag(onClose);
 
   const handleCreate = async () => {
     if (!name || !target) return;
@@ -205,7 +239,7 @@ function CreateGoalSheet({ open, onClose }) {
             <div className="sheet-handle-area" {...handleProps}>
               <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)' }} />
             </div>
-            <div className="sheet-scroll-area">
+            <div className="sheet-scroll-area" ref={scrollAreaRef} {...scrollProps}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>New Savings Goal</h3>
                 <button onClick={onClose} style={{ color: 'var(--text-muted)', display: 'flex' }}><ChevronDown size={20} /></button>
