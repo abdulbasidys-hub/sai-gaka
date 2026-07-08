@@ -8,6 +8,7 @@ import AuthPage from './pages/AuthPage';
 import DashboardPage from './pages/DashboardPage';
 import TransactionsPage from './pages/TransactionsPage';
 import BudgetPage from './pages/BudgetPage';
+import BudgetSettingsPage from './pages/BudgetSettingsPage';
 import SavingsPage from './pages/SavingsPage';
 import SettingsPage from './pages/SettingsPage';
 import InsightsPage from './pages/InsightsPage';
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route index element={<DashboardPage />} />
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="budget" element={<BudgetPage />} />
+        <Route path="budget-settings" element={<BudgetSettingsPage />} />
         <Route path="savings" element={<SavingsPage />} />
         <Route path="insights" element={<InsightsPage />} />
         <Route path="settings" element={<SettingsPage />} />

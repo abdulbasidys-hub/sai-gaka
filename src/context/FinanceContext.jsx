@@ -178,20 +178,17 @@ export function FinanceProvider({ children }) {
     cat => (spentByCategory[cat] || 0) > 0 && !budgets[cat]?.amount
   );
 
-  // ── Add transaction (with balance check) ─────────────────────────────────
+  // ── Add transaction ───────────────────────────────────────────────────────
   const addTransaction = async (data) => {
-    if (!user) return;
+    if (!user) return false;
     const account = data.account || 'GBP';
 
-    // Balance check for expenses
+    // Soft warning only — never block. Balance check was broken because
+    // it only sees current-month transactions, not all-time balance.
     if (data.type === 'expense') {
       const currentBalance = getAccountBalance(account);
-      if (data.amount > currentBalance) {
-        toast.error(
-          `Not enough in your ${account} account. Balance: ${account === 'GBP' ? '£' : '₦'}${currentBalance.toLocaleString()}`,
-          { duration: 5000, icon: '🚫' }
-        );
-        return false; // signal failure
+      if (currentBalance < data.amount && currentBalance > 0) {
+        toast(`Low balance in ${account} — proceeding anyway`, { icon: '⚠️', duration: 3000 });
       }
     }
 
@@ -206,29 +203,26 @@ export function FinanceProvider({ children }) {
       isBorrowed: data.isBorrowed || false,
     });
 
-    // Budget overrun check
+    // Budget overrun check (informational only)
     if (data.type === 'expense' && account === 'GBP' && budgets[data.category]) {
       const currentSpent = spentByCategory[data.category] || 0;
       const newSpent = currentSpent + data.amount;
       const budgeted = budgets[data.category]?.amount || 0;
       if (budgeted > 0 && newSpent > budgeted) {
-        toast.error(`⚠️ Over budget in ${data.category}! £${(newSpent - budgeted).toFixed(0)} over`, { duration: 4000 });
+        toast.error(`Over budget in ${data.category} by £${(newSpent - budgeted).toFixed(0)}`, { duration: 4000 });
       } else if (budgeted > 0 && newSpent / budgeted >= 0.9) {
-        toast(`${data.category} at ${Math.round((newSpent / budgeted) * 100)}% of budget`, { icon: '⚠️', duration: 3500 });
+        toast(`${data.category} at ${Math.round((newSpent / budgeted) * 100)}% of budget`, { icon: '⚠️', duration: 3000 });
       } else {
-        toast.success('Transaction added');
+        toast.success('Transaction saved');
       }
     } else {
-      toast.success('Transaction added');
+      toast.success('Transaction saved');
     }
 
-    // If it's borrowed money, also add to borrowed tracker
     if (data.isBorrowed) {
       await addDoc(collection(db, 'users', user.uid, 'borrowed'), {
         description: data.description || 'Borrowed funds',
-        amount: data.amount,
-        account,
-        repaid: false,
+        amount: data.amount, account, repaid: false,
         createdAt: Timestamp.now(),
         date: Timestamp.fromDate(data.date || new Date()),
       });

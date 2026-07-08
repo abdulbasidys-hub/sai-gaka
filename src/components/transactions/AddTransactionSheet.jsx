@@ -65,7 +65,9 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
     if (type === 'income') { setCategory(''); setIncomeSource(''); }
   }, [type]);
 
-  // Handle drag-to-close ONLY from the handle area
+  const scrollAreaRef = useRef(null);
+
+  // Handle area: always drag to dismiss
   const handleHandleTouchStart = (e) => {
     dragStartY.current = e.touches[0].clientY;
     setDragging(true);
@@ -81,10 +83,35 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
   const handleHandleTouchEnd = (e) => {
     if (!dragging) return;
     const delta = e.changedTouches[0].clientY - (dragStartY.current || 0);
-    if (sheetRef.current) {
-      sheetRef.current.style.transform = '';
-      sheetRef.current.style.transition = '';
+    if (sheetRef.current) { sheetRef.current.style.transform = ''; sheetRef.current.style.transition = ''; }
+    if (delta > 100) onClose();
+    dragStartY.current = null;
+    setDragging(false);
+  };
+
+  // Scroll area: dismiss only when already at top
+  const handleScrollTouchStart = (e) => {
+    const el = scrollAreaRef.current;
+    if (el && el.scrollTop === 0) {
+      dragStartY.current = e.touches[0].clientY;
+      setDragging(true);
     }
+  };
+  const handleScrollTouchMove = (e) => {
+    if (!dragging || dragStartY.current === null) return;
+    const el = scrollAreaRef.current;
+    if (!el || el.scrollTop > 0) { setDragging(false); return; }
+    const delta = e.touches[0].clientY - dragStartY.current;
+    if (delta > 0 && sheetRef.current) {
+      e.preventDefault();
+      sheetRef.current.style.transform = `translateY(${delta}px)`;
+      sheetRef.current.style.transition = 'none';
+    }
+  };
+  const handleScrollTouchEnd = (e) => {
+    if (!dragging) return;
+    const delta = e.changedTouches[0].clientY - (dragStartY.current || 0);
+    if (sheetRef.current) { sheetRef.current.style.transform = ''; sheetRef.current.style.transition = ''; }
     if (delta > 100) onClose();
     dragStartY.current = null;
     setDragging(false);
@@ -106,7 +133,7 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
   const selectedSource = INCOME_SOURCES.find(s => s.id === incomeSource);
 
   const isReady = !!amount && !isNaN(Number(amount)) && Number(amount) > 0
-    && !wouldOverdraw && !loading
+    && !loading
     && (type === 'expense' ? !!category : !!incomeSource);
 
   const handleSubmit = async () => {
@@ -157,7 +184,7 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
               </div>
 
               {/* Scrollable content — normal scroll, no drag dismiss */}
-              <div className="sheet-scroll-area">
+              <div className="sheet-scroll-area" ref={scrollAreaRef} onTouchStart={handleScrollTouchStart} onTouchMove={handleScrollTouchMove} onTouchEnd={handleScrollTouchEnd}>
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                   <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>
@@ -317,11 +344,11 @@ export default function AddTransactionSheet({ open, onClose, prefill }) {
                     color: !isReady ? 'var(--text-muted)' : '#fff',
                     fontSize: '15px', fontWeight: '800', fontFamily: 'var(--font-display)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                    cursor: isReady ? 'pointer' : 'default', border: 'none',
+                    cursor: isReady ? 'pointer' : 'not-allowed', border: 'none',
                   }}
                 >
                   <Check size={16} />
-                  {loading ? 'Saving…' : wouldOverdraw ? 'Insufficient balance' : `Save ${account} ${type === 'expense' ? 'Expense' : 'Income'}`}
+                  {loading ? 'Saving…' : `Save ${account} ${type === 'expense' ? 'Expense' : 'Income'}`}
                 </button>
                 <div style={{ height: 'max(20px, env(safe-area-inset-bottom))' }} />
               </div>

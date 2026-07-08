@@ -98,7 +98,7 @@ export default function TransactionsPage() {
         <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '2px' }}>
           {['all', 'expense', 'income'].map(t => (
             <button key={t} onClick={() => setFilterType(t)} style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap', flexShrink: 0, border: `1px solid ${filterType === t ? 'var(--accent-primary)' : 'var(--border)'}`, background: filterType === t ? 'var(--accent-primary-dim)' : 'var(--bg-card)', color: filterType === t ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>
-              {t === 'all' ? 'All' : t === 'expense' ? '↓ Out' : '↑ In'}
+              {t === 'all' ? 'All' : t === 'expense' ? '↑ Out' : '↓ In'}
             </button>
           ))}
           {['all', 'GBP', 'NGN'].map(a => (

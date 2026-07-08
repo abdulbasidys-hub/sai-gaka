@@ -8,7 +8,6 @@
   --bg-card: #ffffff;
   --bg-card-hover: #f8f8fc;
   --bg-elevated: #f0f0f6;
-
   --accent-primary: #6355e8;
   --accent-primary-dim: rgba(99, 85, 232, 0.1);
   --accent-naira: #22863a;
@@ -19,17 +18,13 @@
   --accent-amber-dim: rgba(217, 119, 6, 0.1);
   --accent-red: #dc2626;
   --accent-red-dim: rgba(220, 38, 38, 0.08);
-
   --text-primary: #0f0f1a;
   --text-secondary: #52526e;
   --text-muted: #9898b0;
-
   --border: rgba(0, 0, 0, 0.07);
   --border-active: rgba(99, 85, 232, 0.4);
-
   --shadow-card: 0 2px 16px rgba(0, 0, 0, 0.07);
   --shadow-glow: 0 0 40px rgba(99, 85, 232, 0.12);
-
   --topbar-bg: rgba(244, 244, 248, 0.92);
   --bottomnav-bg: rgba(244, 244, 248, 0.96);
 }
@@ -41,7 +36,6 @@
   --bg-card: #16161f;
   --bg-card-hover: #1c1c27;
   --bg-elevated: #1e1e2a;
-
   --accent-primary: #7c6aff;
   --accent-primary-dim: rgba(124, 106, 255, 0.15);
   --accent-naira: #34d399;
@@ -52,17 +46,13 @@
   --accent-amber-dim: rgba(251, 191, 36, 0.12);
   --accent-red: #f87171;
   --accent-red-dim: rgba(248, 113, 113, 0.12);
-
   --text-primary: #f0f0f8;
   --text-secondary: #8888a8;
   --text-muted: #55556a;
-
   --border: rgba(255, 255, 255, 0.06);
   --border-active: rgba(124, 106, 255, 0.4);
-
   --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
   --shadow-glow: 0 0 40px rgba(124, 106, 255, 0.15);
-
   --topbar-bg: rgba(10, 10, 15, 0.92);
   --bottomnav-bg: rgba(10, 10, 15, 0.96);
 }
@@ -79,14 +69,9 @@
   --radius-xl: 22px;
 }
 
-/* ─── RESET ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html {
-  scroll-behavior: smooth;
-  -webkit-tap-highlight-color: transparent;
-  height: 100%;
-}
+html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; height: 100%; }
 
 body {
   font-family: var(--font-body);
@@ -123,7 +108,7 @@ a { text-decoration: none; color: inherit; }
   background: var(--bg-base);
 }
 
-/* ── Sheet overlay ── */
+/* ── Sheet backdrop ── */
 .sheet-backdrop {
   position: fixed;
   inset: 0;
@@ -135,10 +120,11 @@ a { text-decoration: none; color: inherit; }
 
 /*
   Sheet panel — full-width bottom sheet.
-  Key fix: overscroll-behavior: contain so inner scroll
-  doesn't bubble up and trigger the drag-to-dismiss.
-  touch-action: pan-y on the content area (not the handle)
-  so only the drag handle fires the drag gesture.
+
+  Drag-to-dismiss is handled MANUALLY in JS using touch events on .sheet-handle-area only.
+  The scroll area uses overscroll-behavior: contain so inner scrolling doesn't
+  accidentally trigger dismiss. When the scroll area is at the very top (scrollTop=0)
+  and the user swipes down, the JS handler detects this and dismisses the sheet.
 */
 .sheet-panel {
   position: fixed;
@@ -159,24 +145,23 @@ a { text-decoration: none; color: inherit; }
   flex-direction: column;
 }
 
+/* Drag handle — touch events here always trigger dismiss gesture */
 .sheet-handle-area {
   flex-shrink: 0;
   padding: 12px 16px 4px;
   display: flex;
   justify-content: center;
-  /* Only this area triggers drag */
-  touch-action: none;
+  touch-action: none; /* disable browser scroll so our JS handles it */
   cursor: grab;
+  user-select: none;
 }
-
 .sheet-handle-area:active { cursor: grabbing; }
 
+/* Scroll area — normal scrolling. When at scrollTop=0 and swiping down, JS dismisses. */
 .sheet-scroll-area {
   flex: 1;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  /* Allow normal scrolling here, NOT drag dismiss */
-  touch-action: pan-y;
-  padding: 8px 16px 0;
+  padding: 4px 16px 0;
 }

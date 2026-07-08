@@ -25,26 +25,40 @@ export default function TransferSheet({ open, onClose }) {
   const wouldOverdraw = !!amount && parseFloat(amount) > fromBalance;
 
   const sheetRef = useRef(null);
+  const scrollAreaRef = useRef(null);
   const dragStartY = useRef(null);
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     if (!open) { setAmount(''); setNotes(''); }
   }, [open]);
 
-  const handleHandleTouchStart = (e) => { dragStartY.current = e.touches[0].clientY; };
+  const handleHandleTouchStart = (e) => { dragStartY.current = e.touches[0].clientY; setDragging(true); };
   const handleHandleTouchMove = (e) => {
-    if (dragStartY.current === null) return;
+    if (!dragging || dragStartY.current === null) return;
     const delta = e.touches[0].clientY - dragStartY.current;
-    if (delta > 0 && sheetRef.current) {
-      sheetRef.current.style.transform = `translateY(${delta}px)`;
-      sheetRef.current.style.transition = 'none';
-    }
+    if (delta > 0 && sheetRef.current) { sheetRef.current.style.transform = `translateY(${delta}px)`; sheetRef.current.style.transition = 'none'; }
   };
   const handleHandleTouchEnd = (e) => {
+    if (!dragging) return;
     const delta = e.changedTouches[0].clientY - (dragStartY.current || 0);
     if (sheetRef.current) { sheetRef.current.style.transform = ''; sheetRef.current.style.transition = ''; }
     if (delta > 100) onClose();
-    dragStartY.current = null;
+    dragStartY.current = null; setDragging(false);
+  };
+  const handleScrollTouchStart = (e) => { if (scrollAreaRef.current?.scrollTop === 0) { dragStartY.current = e.touches[0].clientY; setDragging(true); } };
+  const handleScrollTouchMove = (e) => {
+    if (!dragging) return;
+    if (scrollAreaRef.current?.scrollTop > 0) { setDragging(false); return; }
+    const delta = e.touches[0].clientY - (dragStartY.current || 0);
+    if (delta > 0 && sheetRef.current) { e.preventDefault(); sheetRef.current.style.transform = `translateY(${delta}px)`; sheetRef.current.style.transition = 'none'; }
+  };
+  const handleScrollTouchEnd = (e) => {
+    if (!dragging) return;
+    const delta = e.changedTouches[0].clientY - (dragStartY.current || 0);
+    if (sheetRef.current) { sheetRef.current.style.transform = ''; sheetRef.current.style.transition = ''; }
+    if (delta > 100) onClose();
+    dragStartY.current = null; setDragging(false);
   };
 
   const handleTransfer = async () => {
@@ -80,7 +94,7 @@ export default function TransferSheet({ open, onClose }) {
               <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)' }} />
             </div>
 
-            <div className="sheet-scroll-area">
+            <div className="sheet-scroll-area" ref={scrollAreaRef} onTouchStart={handleScrollTouchStart} onTouchMove={handleScrollTouchMove} onTouchEnd={handleScrollTouchEnd}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <div>
                   <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>Convert & Transfer</h3>
