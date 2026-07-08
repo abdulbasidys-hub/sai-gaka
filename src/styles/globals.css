@@ -143,6 +143,7 @@ a { text-decoration: none; color: inherit; }
   max-height: 94dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* Drag handle — touch events here always trigger dismiss gesture */
@@ -161,6 +162,7 @@ a { text-decoration: none; color: inherit; }
 .sheet-scroll-area {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   padding: 4px 16px 0;

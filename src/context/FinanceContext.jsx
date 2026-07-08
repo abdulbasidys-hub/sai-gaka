@@ -192,7 +192,10 @@ export function FinanceProvider({ children }) {
       }
     }
 
-    await addDoc(collection(db, 'users', user.uid, 'transactions'), {
+    // Strip undefined values — Firestore rejects them
+    const clean = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+
+    await addDoc(collection(db, 'users', user.uid, 'transactions'), clean({
       ...data,
       account,
       date: Timestamp.fromDate(data.date || new Date()),
@@ -201,7 +204,8 @@ export function FinanceProvider({ children }) {
       recurring: data.recurring || false,
       subItem: data.subItem || '',
       isBorrowed: data.isBorrowed || false,
-    });
+      incomeSource: data.incomeSource || null,
+    }));
 
     // Budget overrun check (informational only)
     if (data.type === 'expense' && account === 'GBP' && budgets[data.category]) {

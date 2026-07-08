@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { format, addMonths, subMonths, parseISO, isSameMonth } from 'date-fns';
 import { LogOut, ChevronLeft, ChevronRight, Check, Shield, Sun, Moon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { fmtGBP, fmtNGN } from '../context/CurrencyContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
@@ -56,8 +57,16 @@ export default function SettingsPage() {
 
   const isCurrentMonth = isSameMonth(monthDate, new Date());
 
+  const navigate = useNavigate();
+
   return (
     <div style={{ padding: '16px', paddingBottom: '40px' }}>
+
+      {/* Back button */}
+      <button onClick={() => navigate(-1)}
+        style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '14px', fontWeight: '600', background: 'none', border: 'none', marginBottom: '16px', padding: '0', touchAction: 'manipulation' }}>
+        ← Back
+      </button>
 
       {/* Profile + Theme toggle + Logout */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
